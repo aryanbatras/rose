@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { Providers } from '@/components/providers';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { TrendsSidebar } from '@/components/navigation/TrendsSidebar';
+import { MobileNav } from '@/components/navigation/MobileNav';
 import './globals.css';
 
 const geistSans = Geist({
@@ -44,6 +45,7 @@ export default function RootLayout({
             </main>
             <TrendsSidebar />
           </div>
+          <MobileNav />
         </Providers>
         <Toaster
           position="top-center"

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgentForSession } from '@/services/agent';
-import { createPost } from '@/services/posts';
+import { createPost, uploadBlob } from '@/services/posts';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
@@ -17,15 +17,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Session expired' }, { status: 401 });
     }
 
-    const { text } = await request.json();
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    const formData = await request.formData();
+    const text = (formData.get('text') as string) || '';
+    const imageFiles = formData.getAll('images') as File[];
+
+    if (!text.trim() && imageFiles.length === 0) {
+      return NextResponse.json({ error: 'Text or image is required' }, { status: 400 });
     }
-    if (text.trim().length > 300) {
+    if (text.length > 300) {
       return NextResponse.json({ error: 'Post must be 300 characters or less' }, { status: 400 });
     }
+    if (imageFiles.length > 4) {
+      return NextResponse.json({ error: 'Maximum 4 images allowed' }, { status: 400 });
+    }
 
-    await createPost(agent, text.trim());
+    // Upload images to AT Protocol
+    const uploadedBlobs: any[] = [];
+    for (const file of imageFiles) {
+      const arrayBuffer = await file.arrayBuffer();
+      const blob = await uploadBlob(agent, new Uint8Array(arrayBuffer), file.type);
+      uploadedBlobs.push({
+        image: blob,
+        alt: '',
+      });
+    }
+
+    // Create post with optional image embed
+    const options: any = {};
+    if (uploadedBlobs.length > 0) {
+      options.embed = {
+        $type: 'app.bsky.embed.images',
+        images: uploadedBlobs,
+      };
+    }
+
+    await createPost(agent, text.trim(), options);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Compose API error:', error);
