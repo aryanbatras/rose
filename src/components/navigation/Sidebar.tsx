@@ -28,7 +28,7 @@ export function Sidebar() {
   const { data: unreadData } = useUnreadCount();
   const unread = (unreadData as any)?.count ?? 0;
 
-  if (pathname === '/login' || pathname === '/' || pathname?.startsWith('/oauth')) {
+  if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname?.startsWith('/oauth')) {
     return null;
   }
 

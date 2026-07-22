@@ -99,9 +99,9 @@ export default function LoginPage() {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don&apos;t have a Bluesky account?{' '}
-          <a href="https://bsky.app/signup" target="_blank" rel="noopener noreferrer" className="text-blue hover:underline font-medium">
-            Sign up on Bluesky
-          </a>
+          <button onClick={() => router.push('/signup')} className="text-blue hover:underline font-medium">
+            Get started →
+          </button>
         </p>
       </div>
     </div>
