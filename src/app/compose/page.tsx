@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -9,7 +9,20 @@ import { toast } from 'sonner';
 const MAX_IMAGES = 4;
 
 export default function ComposePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-pulse rounded-full bg-brand/30" />
+      </div>
+    }>
+      <ComposeForm />
+    </Suspense>
+  );
+}
+
+function ComposeForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [text, setText] = useState('');
   const [images, setImages] = useState<File[]>([]);
@@ -17,6 +30,12 @@ export default function ComposePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reply context from query params
+  const replyUri = searchParams.get('replyUri');
+  const replyCid = searchParams.get('replyCid');
+  const replyAuthor = searchParams.get('replyAuthor');
+  const replyText = searchParams.get('replyText');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');
@@ -63,13 +82,19 @@ export default function ComposePage() {
       if (text.trim()) formData.append('text', text.trim());
       images.forEach((img) => formData.append('images', img));
 
+      // Add reply context if replying
+      if (replyUri && replyCid) {
+        formData.append('replyUri', replyUri);
+        formData.append('replyCid', replyCid);
+      }
+
       const res = await fetch('/api/compose', {
         method: 'POST',
         body: formData,
       });
       if (res.ok) {
-        toast.success('Posted!');
-        router.push('/feed');
+        toast.success(replyUri ? 'Replied!' : 'Posted!');
+        router.push(replyUri ? `/feed/${encodeURIComponent(replyUri)}` : '/feed');
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to post');
@@ -93,6 +118,21 @@ export default function ComposePage() {
           </Button>
         </div>
       </header>
+
+      {/* Reply context */}
+      {replyAuthor && replyText && (
+        <div className="px-4 pt-3 pb-0 flex gap-3 items-start border-b border-border">
+          <div className="w-10 shrink-0" />
+          <div className="flex-1 min-w-0 pb-2">
+            <p className="text-sm text-muted-foreground">
+              Replying to <span className="text-blue font-medium">@{replyAuthor}</span>
+            </p>
+            <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+              {replyText}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3 p-4">
         <div className="h-10 w-10 rounded-full bg-brand/20 shrink-0" />

@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const text = (formData.get('text') as string) || '';
     const imageFiles = formData.getAll('images') as File[];
+    const replyUri = formData.get('replyUri') as string | null;
+    const replyCid = formData.get('replyCid') as string | null;
 
     if (!text.trim() && imageFiles.length === 0) {
       return NextResponse.json({ error: 'Text or image is required' }, { status: 400 });
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create post with optional image embed
+    // Build post options
     const options: any = {};
     if (uploadedBlobs.length > 0) {
       options.embed = {
@@ -51,7 +53,13 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    await createPost(agent, text.trim(), options);
+    // Handle reply
+    if (replyUri && replyCid) {
+      options.replyTo = { uri: replyUri, cid: replyCid };
+      await createPost(agent, text.trim(), options);
+    } else {
+      await createPost(agent, text.trim(), options);
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Compose API error:', error);

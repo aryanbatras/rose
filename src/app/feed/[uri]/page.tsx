@@ -92,6 +92,33 @@ export default function PostThreadPage() {
             ))}
           </div>
         )}
+
+        {/* Reply composer */}
+        <div className="sticky bottom-0 border-t border-border bg-surface-base/95 backdrop-blur-lg px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-accent shrink-0" />
+            <input
+              type="text"
+              placeholder="Write your reply..."
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none border-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  const mainPost = 'post' in thread ? thread.post : thread;
+                  const replyAuthor = mainPost?.author?.handle || '';
+                  const replyText = mainPost?.record?.text || '';
+                  const params = new URLSearchParams({
+                    replyUri: uri,
+                    replyCid: mainPost?.cid || '',
+                    replyAuthor,
+                    replyText: replyText.slice(0, 100),
+                  });
+                  router.push(`/compose?${params}`);
+                }
+              }}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );
