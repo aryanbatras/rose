@@ -1,21 +1,25 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 
 export function useSearchPosts(query: string) {
   const { session } = useAuth();
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['searchPosts', query],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
       if (!session) throw new Error('Not authenticated');
       if (!query.trim()) return { items: [], cursor: undefined };
-      const res = await fetch(`/api/search/posts?q=${encodeURIComponent(query)}`);
+      const params = new URLSearchParams({ q: query });
+      if (pageParam) params.set('cursor', pageParam);
+      const res = await fetch(`/api/search/posts?${params.toString()}`);
       if (!res.ok) throw new Error('Search failed');
-      return res.json();
+      return res.json() as Promise<{ items: any[]; cursor: string | null }>;
     },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
     enabled: !!session && query.length >= 2,
     staleTime: 30_000,
   });

@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedSearch, useSearchPosts, useSearchActors } from '@/hooks/useSearch';
 import { Avatar } from '@/components/ui/avatar';
-import { FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Play, Image, LayoutGrid } from 'lucide-react';
-
+import { Play, Image, LayoutGrid, Loader2 } from 'lucide-react';
 
 export default function SearchPage() {
   const router = useRouter();
@@ -15,7 +13,13 @@ export default function SearchPage() {
   const { query, setQuery, debouncedQuery } = useDebouncedSearch(300);
   const [tab, setTab] = useState<'top' | 'people' | 'posts'>('top');
 
-  const { data: postsData, isLoading: postsLoading } = useSearchPosts(debouncedQuery);
+  const {
+    data: postsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetching: postsFetching,
+  } = useSearchPosts(debouncedQuery);
   const { data: actorsData, isLoading: actorsLoading } = useSearchActors(debouncedQuery);
 
   useEffect(() => {
@@ -24,10 +28,28 @@ export default function SearchPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  const posts = postsData?.items || [];
+  const posts = postsData?.pages.flatMap((p) => p.items) || [];
   const actors = actorsData || [];
-  const isLoading = postsLoading || actorsLoading;
+  const isLoading = postsFetching && !postsData;
   const hasQuery = debouncedQuery.trim().length >= 2;
+
+  // ─── Infinite scroll sentinel ─────────────────────
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!hasQuery || tab === 'people') return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '400px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasQuery, tab, hasNextPage, isFetchingNextPage, fetchNextPage, posts.length]);
 
   // When no search query, show Discover grid (2-column photos/videos)
   const [discoverPosts, setDiscoverPosts] = useState<any[]>([]);
@@ -43,7 +65,6 @@ export default function SearchPage() {
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((data) => {
         const items = data.items || [];
-        // Only show posts with images or video embeds
         setDiscoverPosts(
           items.filter((p: any) => {
             const em = p.record?.embed;
@@ -181,26 +202,9 @@ export default function SearchPage() {
               </div>
             )}
           </>
-        ) : isLoading ? (
-          /* ─── SEARCH RESULTS LOADING ───────────────── */
-          tab === 'posts' ? (
-            Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)
-          ) : (
-            <div className="space-y-1 px-4 pt-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 py-3">
-                  <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
-                  <div className="flex-1 space-y-1">
-                    <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                    <div className="h-3 w-20 animate-pulse rounded bg-muted" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
         ) : (
-          /* ─── SEARCH RESULTS ───────────────────────── */
           <>
+            {/* ─── SEARCH RESULTS ───────────────────────── */}
             {(tab === 'top' || tab === 'people') && actors.length > 0 && (
               <div className="px-4 pt-4">
                 {(tab === 'top') && <h2 className="mb-2 text-sm font-semibold text-foreground">People</h2>}
@@ -222,64 +226,87 @@ export default function SearchPage() {
               </div>
             )}
 
-            {(tab === 'top' || tab === 'posts') && posts.length > 0 && (
-              <div className="px-2 pt-3">
-                {(tab === 'top') && actors.length > 0 && (
-                  <div className="px-2 pb-3">
-                    <h2 className="text-sm font-semibold text-foreground">Posts</h2>
+            {(tab === 'top' || tab === 'posts') && (
+              <>
+                {isLoading ? (
+                  /* ─── POSTS LOADING SKELETON ─────────── */
+                  <div className="px-2 pt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {Array.from({ length: 9 }).map((_, i) => (
+                        <div key={i} className="aspect-square rounded-2xl bg-surface-elevated animate-pulse" />
+                      ))}
+                    </div>
+                  </div>
+                ) : posts.length > 0 ? (
+                  <>
+                    <div className="px-2 pt-3">
+                      {(tab === 'top') && actors.length > 0 && (
+                        <div className="px-2 pb-3">
+                          <h2 className="text-sm font-semibold text-foreground">Posts</h2>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {posts.map((item: any, index: number) => {
+                          const em = item.record?.embed || item.embed;
+                          const images = em?.images || [];
+                          const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
+                          const isVideo = (em?.$type || '').includes('video');
+                          const isMultiImage = images.length > 1;
+                          const authorName = item.author?.displayName || item.author?.handle || '';
+
+                          return thumbUrl ? (
+                            <button
+                              key={`${item.uri}-${index}`}
+                              onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
+                              className="relative aspect-square overflow-hidden rounded-2xl bg-surface-elevated group cursor-pointer shadow-sm"
+                            >
+                              <img src={thumbUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" loading="lazy" />
+                              <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                                <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className="h-5 w-5 rounded-full overflow-hidden ring-1 ring-white/30 shrink-0">
+                                      {item.author?.avatar && <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />}
+                                    </div>
+                                    <span className="text-xs font-semibold text-white truncate drop-shadow-sm">{authorName}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-white/70">
+                                    <span>❤ {item.likeCount || 0}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {isVideo && (
+                                <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                  <Play className="h-3 w-3 text-white fill-white ml-0.5" strokeWidth={0} />
+                                </div>
+                              )}
+                              {isMultiImage && (
+                                <div className="absolute top-2 left-2 h-5 w-5 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                                  <Image className="h-3 w-3 text-white" />
+                                </div>
+                              )}
+                            </button>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Infinite scroll sentinel + loading indicator */}
+                    <div ref={sentinelRef} className="flex items-center justify-center py-6">
+                      {isFetchingNextPage && (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      )}
+                      {!hasNextPage && posts.length > 0 && (
+                        <p className="text-xs text-muted-foreground/50">No more results</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-16 text-center">
+                    <p className="text-muted-foreground">No results for &ldquo;{debouncedQuery}&rdquo;</p>
+                    <p className="text-sm text-muted-foreground mt-1">Try a different search</p>
                   </div>
                 )}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {posts.map((item: any, index: number) => {
-                    const em = item.record?.embed || item.embed;
-                    const images = em?.images || [];
-                    const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
-                    const isVideo = (em?.$type || '').includes('video');
-                    const isMultiImage = images.length > 1;
-                    const authorName = item.author?.displayName || item.author?.handle || '';
-
-                    return thumbUrl ? (
-                      <button
-                        key={`${item.uri}-${index}`}
-                        onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
-                        className="relative aspect-square overflow-hidden rounded-2xl bg-surface-elevated group cursor-pointer shadow-sm"
-                      >
-                        <img src={thumbUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" loading="lazy" />
-                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                          <div className="absolute bottom-0 left-0 right-0 p-2.5">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="h-5 w-5 rounded-full overflow-hidden ring-1 ring-white/30 shrink-0">
-                                {item.author?.avatar && <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />}
-                              </div>
-                              <span className="text-xs font-semibold text-white truncate drop-shadow-sm">{authorName}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px] text-white/70">
-                              <span>❤ {item.likeCount || 0}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {isVideo && (
-                          <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                            <Play className="h-3 w-3 text-white fill-white ml-0.5" strokeWidth={0} />
-                          </div>
-                        )}
-                        {isMultiImage && (
-                          <div className="absolute top-2 left-2 h-5 w-5 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-                            <Image className="h-3 w-3 text-white" />
-                          </div>
-                        )}
-                      </button>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-            )}
-
-            {posts.length === 0 && actors.length === 0 && (
-              <div className="py-16 text-center">
-                <p className="text-muted-foreground">No results for &ldquo;{debouncedQuery}&rdquo;</p>
-                <p className="text-sm text-muted-foreground mt-1">Try a different search</p>
-              </div>
+              </>
             )}
           </>
         )}
