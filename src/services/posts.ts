@@ -185,6 +185,12 @@ function normalizeFeedItem(item: any): FeedItem {
   const post = item.post || item;
   const record = post.record || {};
 
+  // Bluesky API returns TWO embed locations:
+  //   post.embed       = the hydrated VIEW form (actual image/video URLs, thumbnails)
+  //   record.embed     = the raw INPUT form (BlobRef references)
+  // We always prefer post.embed for display data.
+  const embed = post.embed || record.embed;
+
   return {
     uri: post.uri,
     cid: post.cid,
@@ -199,7 +205,7 @@ function normalizeFeedItem(item: any): FeedItem {
       text: record.text || '',
       createdAt: record.createdAt || post.indexedAt,
       facets: record.facets,
-      embed: record.embed,
+      embed,
     },
     indexedAt: post.indexedAt,
     likeCount: post.likeCount || 0,

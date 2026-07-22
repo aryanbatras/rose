@@ -196,45 +196,76 @@ export function FeedCard({ item, reason }: FeedCardProps) {
         </p>
 
         {/* Embedded media */}
-        {item.record.embed && (
-          <div className="mt-2 overflow-hidden rounded-lg border border-border">
-            {item.record.embed.$type === 'app.bsky.embed.images#view' && item.record.embed.images && (
-              <div className={item.record.embed.images.length > 1 ? 'grid grid-cols-2 gap-0.5' : ''}>
-                {item.record.embed.images.map((img: any, i: number) => (
+        {(() => {
+          const em = item.record.embed;
+          if (!em) return null;
+          const t = em.$type || '';
+
+          // Images
+          if ((t.includes('images') || t.includes('image')) && em.images?.length) {
+            const isMulti = em.images.length > 1;
+            return (
+              <div className={`mt-2 overflow-hidden rounded-xl ${isMulti ? 'grid grid-cols-2 gap-0.5' : ''}`}>
+                {em.images.map((img: any, i: number) => (
                   <img
                     key={i}
-                    src={img.thumb || `https://og-image.xyz/${i}`}
+                    src={img.thumb || img.fullsize}
                     alt={img.alt || ''}
-                    className="w-full object-cover max-h-60"
+                    className="w-full object-cover max-h-72"
                     loading="lazy"
                   />
                 ))}
               </div>
-            )}
-            {item.record.embed.$type === 'app.bsky.embed.external#view' && item.record.embed.external && (
-              <div className="flex flex-col">
-                {item.record.embed.external.thumb && (
-                  <img
-                    src={item.record.embed.external.thumb}
-                    alt=""
-                    className="w-full h-40 object-cover"
-                    loading="lazy"
-                  />
+            );
+          }
+
+          // Video
+          if (t.includes('video')) {
+            const thumb = em.video?.thumbnail;
+            return (
+              <div className="mt-2 overflow-hidden rounded-xl bg-black/40 relative">
+                {thumb && (
+                  <img src={thumb} alt="" className="w-full object-cover max-h-72" loading="lazy" />
                 )}
-                <div className="p-3">
-                  <p className="text-sm font-semibold text-foreground">{item.record.embed.external.title}</p>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{item.record.embed.external.description}</p>
-                  <p className="text-xs text-blue mt-1 truncate">{item.record.embed.external.uri}</p>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-14 w-14 rounded-full bg-black/60 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
                 </div>
               </div>
-            )}
-            {item.record.embed.$type === 'app.bsky.embed.record#view' && (
-              <div className="p-3 text-sm text-muted-foreground">
+            );
+          }
+
+          // External link
+          if (t.includes('external')) {
+            const ext = em.external;
+            return ext ? (
+              <div className="mt-2 overflow-hidden rounded-xl border border-border">
+                {ext.thumb && (
+                  <img src={ext.thumb} alt="" className="w-full h-44 object-cover" loading="lazy" />
+                )}
+                <div className="p-4">
+                  <p className="text-[15px] font-semibold text-foreground">{ext.title}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{ext.description}</p>
+                  <p className="text-sm text-blue mt-1.5 truncate">{ext.uri}</p>
+                </div>
+              </div>
+            ) : null;
+          }
+
+          // Record/quote
+          if (t.includes('record')) {
+            return (
+              <div className="mt-2 p-4 rounded-xl border border-border text-sm text-muted-foreground bg-surface-elevated/50">
                 Quoted post
               </div>
-            )}
-          </div>
-        )}
+            );
+          }
+
+          return null;
+        })()}
 
         {/* Interaction row */}
         <div className="flex items-center gap-2 mt-2 -ml-2">

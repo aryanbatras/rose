@@ -29,7 +29,7 @@ function applyClientFilters(posts: FeedItem[], content: any, mute: any): FeedIte
   }
   if (content.videoOnly) {
     filtered = filtered.filter(
-      (p) => p.record.embed?.$type === 'app.bsky.embed.video#view'
+      (p) => (p.record.embed?.$type || '').includes('video')
     );
   }
   if (mute.mutedWords.length > 0) {
@@ -44,12 +44,13 @@ function applyClientFilters(posts: FeedItem[], content: any, mute: any): FeedIte
 
 function GridView({ items }: { items: FeedItem[] }) {
   const router = useRouter();
-  const mediaItems = items.filter(
-    (p) =>
-      p.record.embed &&
-      (p.record.embed.$type === 'app.bsky.embed.images#view' ||
-        p.record.embed.$type === 'app.bsky.embed.video#view')
-  );
+  const mediaItems = items.filter((p) => {
+    const em = p.record.embed;
+    if (!em) return false;
+    // Bluesky returns embed.$type with #view suffix in hydrated form
+    const t = em.$type || '';
+    return t.includes('images') || t.includes('video') || t.includes('external');
+  });
 
   if (mediaItems.length === 0) {
     return (
@@ -62,19 +63,23 @@ function GridView({ items }: { items: FeedItem[] }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-1">
       {mediaItems.map((item) => {
-        const firstImage =
-          item.record.embed?.$type === 'app.bsky.embed.images#view'
-            ? item.record.embed.images?.[0]?.thumb
-            : null;
+        const em = item.record.embed;
+        // Try all possible thumbnail locations
+        const thumbUrl =
+          em?.images?.[0]?.thumb ||
+          em?.images?.[0]?.fullsize ||
+          em?.external?.thumb ||
+          em?.video?.thumbnail ||
+          null;
         return (
           <button
-            key={item.uri}
+            key={`${item.uri}-${item.cid}`}
             onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
             className="relative aspect-square overflow-hidden rounded-lg bg-surface-elevated group cursor-pointer"
           >
-            {firstImage ? (
+            {thumbUrl ? (
               <img
-                src={firstImage}
+                src={thumbUrl}
                 alt=""
                 className="h-full w-full object-cover"
                 loading="lazy"
@@ -102,10 +107,10 @@ function GridView({ items }: { items: FeedItem[] }) {
 function CompactView({ items }: { items: FeedItem[] }) {
   const router = useRouter();
   return (
-    <div className="divide-y divide-border/50">
+    <div>
       {items.map((item) => (
         <button
-          key={item.uri}
+          key={`${item.uri}-${item.cid}`}
           onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
           className="flex w-full items-start gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors text-left"
         >
@@ -139,9 +144,10 @@ function CompactView({ items }: { items: FeedItem[] }) {
 
 function ReelsView({ items }: { items: FeedItem[] }) {
   const router = useRouter();
-  const videoItems = items.filter(
-    (p) => p.record.embed?.$type === 'app.bsky.embed.video#view'
-  );
+  const videoItems = items.filter((p) => {
+    const t = p.record.embed?.$type || '';
+    return t.includes('video');
+  });
 
   if (videoItems.length === 0) {
     return (
@@ -155,7 +161,7 @@ function ReelsView({ items }: { items: FeedItem[] }) {
     <div className="flex flex-col">
       {videoItems.map((item) => (
         <div
-          key={item.uri}
+          key={`${item.uri}-${item.cid}`}
           className="relative h-[80vh] w-full flex items-center justify-center bg-black border-b border-border snap-start"
         >
           <div className="absolute inset-0 flex items-center justify-center">
@@ -323,13 +329,12 @@ export default function FeedPage() {
           </p>
         </div>
       ) : (
-        <>
-          {mode === 'classic' && (
-            <div className="divide-y divide-border/50">
-              {filteredPosts.map((item: any, index: number) => (
-                <FeedCard key={`${item.uri}-${index}`} item={item} reason={item.reason} />
-              ))}
-            </div>
+        <>            {mode === 'classic' && (
+              <div>
+                {filteredPosts.map((item: any, index: number) => (
+                  <FeedCard key={`${item.uri}-${item.cid || index}`} item={item} reason={item.reason} />
+                ))}
+              </div>
           )}
           {mode === 'grid' && <GridView items={filteredPosts} />}
           {mode === 'reels' && <ReelsView items={filteredPosts} />}
