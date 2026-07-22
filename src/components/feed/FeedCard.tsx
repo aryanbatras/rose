@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/avatar';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { formatRelativeTime } from '@/lib/time';
 import type { FeedItem } from '@/types/atproto';
 
@@ -21,6 +21,43 @@ export function FeedCard({ item, reason }: FeedCardProps) {
   const [reposted, setReposted] = useState(!!item.viewer?.repost);
   const [repostCount, setRepostCount] = useState(item.repostCount);
   const [isReposting, setIsReposting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isOwnPost = session?.did === item.author.did;
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!session || isDeleting || !isOwnPost) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/interact/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: item.uri }),
+      });
+      if (res.ok) {
+        setDeleted(true);
+        setShowMenu(false);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (deleted) return null;
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -122,6 +159,35 @@ export function FeedCard({ item, reason }: FeedCardProps) {
           <span className="shrink-0 text-sm text-muted-foreground">
             {formatRelativeTime(item.indexedAt)}
           </span>
+
+          {isOwnPost && (
+            <div className="relative ml-auto" ref={menuRef}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+                className="p-1 rounded-full hover:bg-brand/10 transition-colors"
+                aria-label="Post options"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                  <button
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    {isDeleting ? 'Deleting...' : 'Delete post'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Post text */}
