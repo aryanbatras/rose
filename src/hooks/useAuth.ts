@@ -31,11 +31,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/auth/session');
       if (response.ok) {
         const data = await response.json();
-        setSession(data);
-        setError(null);
+        if (data && data.did) {
+          setSession(data);
+          setError(null);
+        } else {
+          setSession(null);
+        }
+      } else {
+        setSession(null);
+        setError('Session expired');
       }
     } catch {
-      // No session
+      setSession(null);
+      setError('Session check failed');
     } finally {
       setIsLoading(false);
     }

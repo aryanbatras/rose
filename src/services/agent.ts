@@ -56,14 +56,19 @@ export async function resumeSession(
   return agent;
 }
 
-export async function getAgentForSession(): Promise<BskyAgent | null> {
+export async function getAgentForSession(sessionData?: SessionData): Promise<BskyAgent | null> {
   try {
+    // If session data is provided directly, use it
+    if (sessionData) {
+      return await resumeSession(sessionData);
+    }
+    // Otherwise, try to read from cookie
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('voiceflow_session');
     if (!sessionCookie) return null;
 
-    const sessionData: SessionData = JSON.parse(sessionCookie.value);
-    const agent = await resumeSession(sessionData);
+    const parsed: SessionData = JSON.parse(sessionCookie.value);
+    const agent = await resumeSession(parsed);
     return agent;
   } catch {
     return null;
