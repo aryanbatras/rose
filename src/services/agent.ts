@@ -121,6 +121,60 @@ export async function createAgentFromSession(
 }
 
 /**
+ * Create a new Bluesky account via the AT Protocol.
+ * Note: bsky.social may block direct API signups via Entryway.
+ * Falls back gracefully with the error message from the server.
+ */
+export async function createAccount(
+  handle: string,
+  email: string,
+  password: string,
+  inviteCode?: string
+): Promise<{ session: SessionData | null; error?: string }> {
+  try {
+    const agent = new BskyAgent({ service: ATPROTO_SERVICE });
+    const response = await agent.api.com.atproto.server.createAccount({
+      handle,
+      email,
+      password,
+      inviteCode: inviteCode || undefined,
+    });
+    const data = response.data;
+    return {
+      session: {
+        did: data.did,
+        handle: data.handle,
+        accessJwt: data.accessJwt,
+        refreshJwt: data.refreshJwt,
+        active: true,
+      },
+    };
+  } catch (error: any) {
+    const message = error?.message || 'Account creation failed';
+    // Map common AT Protocol errors to user-friendly messages
+    if (message.includes('HandleNotAvailable') || message.includes('handle already taken')) {
+      return { session: null, error: 'This handle is already taken. Please choose another.' };
+    }
+    if (message.includes('InvalidHandle')) {
+      return { session: null, error: 'The handle you entered is invalid. Use a valid handle like yourname.bsky.social.' };
+    }
+    if (message.includes('InvalidPassword') || message.includes('weak password')) {
+      return { session: null, error: 'Password is too weak. Use at least 8 characters with a mix of letters and numbers.' };
+    }
+    if (message.includes('InvalidInviteCode')) {
+      return { session: null, error: 'The invite code is invalid or expired.' };
+    }
+    if (message.includes('429') || message.includes('RateLimit')) {
+      return { session: null, error: 'Too many attempts. Please wait a few minutes and try again.' };
+    }
+    if (message.includes('403') || message.includes('Forbidden') || message.includes('Entryway')) {
+      return { session: null, error: 'Direct signup is not available on this server. Please create an account on bsky.app first, then sign in.' };
+    }
+    return { session: null, error: message };
+  }
+}
+
+/**
  * Refresh an expired session using refresh token.
  */
 export async function refreshSession(
