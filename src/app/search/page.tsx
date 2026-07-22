@@ -33,11 +33,11 @@ export default function SearchPage() {
   const isLoading = postsFetching && !postsData;
   const hasQuery = debouncedQuery.trim().length >= 2;
 
-  // ─── Infinite scroll sentinel ─────────────────────
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  // ─── Search results infinite scroll sentinel ──────
+  const searchSentinelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!hasQuery || tab === 'people') return;
-    const el = sentinelRef.current;
+    const el = searchSentinelRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       (entries) => {
@@ -51,32 +51,91 @@ export default function SearchPage() {
     return () => observer.disconnect();
   }, [hasQuery, tab, hasNextPage, isFetchingNextPage, fetchNextPage, posts.length]);
 
-  // When no search query, show Discover grid (2-column photos/videos)
+  // ─── Discover grid (no search query) ──────────────
   const [discoverPosts, setDiscoverPosts] = useState<any[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
+  const [discoverLoadingMore, setDiscoverLoadingMore] = useState(false);
+  const discoverCursorRef = useRef<string | null>(null);
+  const discoverFetchingRef = useRef(false);
+  const discoverSentinelRef = useRef<HTMLDivElement>(null);
 
+  // Helper: filter posts with image/video embeds, dedup by URI
+  const filterMedia = (items: any[], existing: any[]) => {
+    const existingUris = new Set(existing.map((p) => p.uri));
+    return items.filter((p: any) => {
+      const em = p.record?.embed;
+      if (!em) return false;
+      const t = em.$type || '';
+      if (!t.includes('images') && !t.includes('video')) return false;
+      return !existingUris.has(p.uri);
+    });
+  };
+
+  // Initial discover fetch (and reset when user clears search)
   useEffect(() => {
     if (!isAuthenticated || hasQuery) {
       setDiscoverLoading(false);
       return;
     }
+    // Cache guard: if we already have data from a previous browse, don't re-fetch
+    if (discoverPosts.length > 0) {
+      setDiscoverLoading(false);
+      return;
+    }
     setDiscoverLoading(true);
-    fetch('/api/feed?sourceType=discover&limit=50')
-      .then((r) => (r.ok ? r.json() : { items: [] }))
+    discoverCursorRef.current = null;
+    discoverFetchingRef.current = true;
+    fetch('/api/feed?sourceType=discover&limit=20')
+      .then((r) => (r.ok ? r.json() : { items: [], cursor: null }))
       .then((data) => {
         const items = data.items || [];
-        setDiscoverPosts(
-          items.filter((p: any) => {
-            const em = p.record?.embed;
-            if (!em) return false;
-            const t = em.$type || '';
-            return t.includes('images') || t.includes('video');
-          })
-        );
+        discoverCursorRef.current = data.cursor || null;
+        setDiscoverPosts(items.filter((p: any) => {
+          const em = p.record?.embed;
+          if (!em) return false;
+          const t = em.$type || '';
+          return t.includes('images') || t.includes('video');
+        }));
       })
       .catch(() => {})
-      .finally(() => setDiscoverLoading(false));
+      .finally(() => {
+        discoverFetchingRef.current = false;
+        setDiscoverLoading(false);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, hasQuery]);
+
+  // Infinite scroll for discover grid
+  useEffect(() => {
+    if (hasQuery) return;
+    if (discoverLoading) return;
+    const el = discoverSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0].isIntersecting) return;
+        if (discoverFetchingRef.current) return;
+        if (!discoverCursorRef.current) return;
+        discoverFetchingRef.current = true;
+        setDiscoverLoadingMore(true);
+        fetch(`/api/feed?sourceType=discover&limit=20&cursor=${encodeURIComponent(discoverCursorRef.current)}`)
+          .then((r) => (r.ok ? r.json() : { items: [], cursor: null }))
+          .then((data) => {
+            const items = data.items || [];
+            discoverCursorRef.current = data.cursor || null;
+            setDiscoverPosts((prev) => [...prev, ...filterMedia(items, prev)]);
+          })
+          .catch(() => {})
+          .finally(() => {
+            discoverFetchingRef.current = false;
+            setDiscoverLoadingMore(false);
+          });
+      },
+      { rootMargin: '400px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasQuery, discoverLoading, discoverPosts.length]);
 
   return (
     <div className="min-h-[100dvh] bg-surface-base">
@@ -130,7 +189,7 @@ export default function SearchPage() {
 
       <main className="mx-auto pb-20">
         {!hasQuery ? (
-          /* ─── DISCOVER GRID (no query) ─────────────── */
+          /* ─── DISCOVER GRID (no query, infinite scroll) ── */
           <>
             {discoverLoading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-[2px] px-0 pt-2">
@@ -198,6 +257,16 @@ export default function SearchPage() {
                       </button>
                     );
                   })}
+                </div>
+
+                {/* Discover infinite scroll sentinel + loading indicator */}
+                <div ref={discoverSentinelRef} className="flex items-center justify-center py-6">
+                  {discoverLoadingMore && (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  )}
+                  {!discoverCursorRef.current && discoverPosts.length > 0 && (
+                    <p className="text-xs text-muted-foreground/50">No more media</p>
+                  )}
                 </div>
               </div>
             )}
@@ -290,8 +359,8 @@ export default function SearchPage() {
                       </div>
                     </div>
 
-                    {/* Infinite scroll sentinel + loading indicator */}
-                    <div ref={sentinelRef} className="flex items-center justify-center py-6">
+                    {/* Search infinite scroll sentinel + loading indicator */}
+                    <div ref={searchSentinelRef} className="flex items-center justify-center py-6">
                       {isFetchingNextPage && (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       )}
