@@ -16,6 +16,7 @@ import { ViewModeToggle } from '@/components/feed/ViewModeToggle';
 import { FilterPanel } from '@/components/feed/FilterPanel';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { StoriesRow } from '@/components/feed/StoriesRow';
+import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
 import { Heart, MessageCircle, Play, Image, Plus } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
@@ -229,6 +230,8 @@ export default function FeedPage() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useFeed();
   const { mode } = useViewModeStore();
   const { content, mute } = useFilterStore();
+  const { activeSource } = useFeedSourceStore();
+  const isTrending = activeSource?.type === 'trending';
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 
   useKeyboardShortcuts({
@@ -286,10 +289,17 @@ export default function FeedPage() {
         </div>
       </header>
 
-      {mode === 'grid' && (
-        <div className="border-b border-border/40">
-          <StoriesRow />
-        </div>
+      {/* Render TrendingFeedView when trending source is active */}
+      {isTrending ? (
+        <TrendingFeedView />
+      ) : (
+        <>
+          {mode === 'grid' && (
+            <div className="border-b border-border/40">
+              <StoriesRow />
+            </div>
+          )}
+        </>
       )}
 
       {showShortcutHelp && (
@@ -320,44 +330,48 @@ export default function FeedPage() {
         </>
       )}
 
-      {isLoading ? (
-        <div className={mode === 'compact' ? '' : 'space-y-0'}>
-          {Array.from({ length: 8 }).map((_, i) => <FeedCardSkeleton key={i} />)}
-        </div>
-      ) : error ? (
-        <div className="py-20 text-center">
-          <p className="text-muted-foreground">Failed to load feed</p>
-          <button onClick={() => window.location.reload()} className="mt-2 text-sm text-brand hover:underline">Try again</button>
-        </div>
-      ) : filteredPosts.length === 0 ? (
-        <div className="py-20 text-center">
-          <p className="text-lg font-medium text-foreground">{uniquePosts.length > 0 ? 'No posts match your filters' : 'Welcome to VoiceFlow!'}</p>
-          <p className="text-sm text-muted-foreground mt-1">{uniquePosts.length > 0 ? 'Try adjusting your filters' : 'Follow some users to see their posts here'}</p>
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            {mode === 'classic' && (
-              <div>
-                {filteredPosts.map((item: any, index: number) => (
-                  <FeedCard key={`${item.uri}-${item.cid || index}`} item={item} reason={item.reason} />
-                ))}
+      {!isTrending && (
+        <>
+          {isLoading ? (
+            <div className={mode === 'compact' ? '' : 'space-y-0'}>
+              {Array.from({ length: 8 }).map((_, i) => <FeedCardSkeleton key={i} />)}
+            </div>
+          ) : error ? (
+            <div className="py-20 text-center">
+              <p className="text-muted-foreground">Failed to load feed</p>
+              <button onClick={() => window.location.reload()} className="mt-2 text-sm text-brand hover:underline">Try again</button>
+            </div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="py-20 text-center">
+              <p className="text-lg font-medium text-foreground">{uniquePosts.length > 0 ? 'No posts match your filters' : 'Welcome to VoiceFlow!'}</p>
+              <p className="text-sm text-muted-foreground mt-1">{uniquePosts.length > 0 ? 'Try adjusting your filters' : 'Follow some users to see their posts here'}</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                {mode === 'classic' && (
+                  <div>
+                    {filteredPosts.map((item: any, index: number) => (
+                      <FeedCard key={`${item.uri}-${item.cid || index}`} item={item} reason={item.reason} />
+                    ))}
+                  </div>
+                )}
+                {mode === 'grid' && <GridView items={filteredPosts} />}
+                {mode === 'reels' && <ReelsView items={filteredPosts} />}
+                {mode === 'compact' && <CompactView items={filteredPosts} />}
+              </motion.div>
+              <div ref={loadMoreRef} className="py-8">
+                {isFetchingNextPage && Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)}
               </div>
-            )}
-            {mode === 'grid' && <GridView items={filteredPosts} />}
-            {mode === 'reels' && <ReelsView items={filteredPosts} />}
-            {mode === 'compact' && <CompactView items={filteredPosts} />}
-          </motion.div>
-          <div ref={loadMoreRef} className="py-8">
-            {isFetchingNextPage && Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)}
-          </div>
-        </AnimatePresence>
+            </AnimatePresence>
+          )}
+        </>
       )}
     </>
   );

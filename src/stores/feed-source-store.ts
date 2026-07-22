@@ -6,6 +6,7 @@ const DEFAULT_SOURCE: FeedSource = { type: 'following', label: 'Following' };
 
 const PRESET_FEEDS: FeedSource[] = [
   { type: 'following', label: 'Following' },
+  { type: 'trending', label: 'Trending' },
   { type: 'discover', label: 'Discover' },
 ];
 

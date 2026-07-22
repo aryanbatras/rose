@@ -218,7 +218,7 @@ export interface Bookmark {
 }
 
 export interface FeedSource {
-  type: 'following' | 'discover' | 'custom' | 'list';
+  type: 'following' | 'discover' | 'trending' | 'custom' | 'list';
   uri?: string;
   label: string;
   icon?: string;
