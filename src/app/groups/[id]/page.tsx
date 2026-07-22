@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useGroupNameStore } from '@/stores/group-name-store';
+import { useGroupMessagePolling } from '@/hooks/useGroupMessagePolling';
 import type { GroupInfo, MessageView, BasicProfileView, JoinLink, JoinRequestView } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
@@ -114,6 +115,22 @@ export default function GroupDetailPage() {
       handleSend();
     }
   };
+
+  // ── Message polling (8s interval) ────────────────────────────────────
+  const handleMessagesUpdate = useCallback((freshMessages: MessageView[]) => {
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id));
+      const newMessages = freshMessages.filter((m) => !existingIds.has(m.id));
+      if (newMessages.length === 0) return prev;
+      return [...prev, ...newMessages];
+    });
+  }, []);
+
+  useGroupMessagePolling({
+    isAuthenticated: isAuthenticated && !!session,
+    convoId,
+    onMessagesUpdate: handleMessagesUpdate,
+  });
 
   // ── Invite link actions ─────────────────────────────────────────────
   const handleCreateInviteLink = useCallback(async () => {
