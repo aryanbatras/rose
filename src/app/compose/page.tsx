@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ImageEditor } from '@/components/compose/ImageEditor';
 import { toast } from 'sonner';
 import { Image, X, Wand2 } from 'lucide-react';
+import { compressImages } from '@/utils/imageCompress';
 
 const MAX_IMAGES = 4;
 
@@ -30,6 +31,7 @@ function ComposeForm() {
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,21 +55,40 @@ function ComposeForm() {
     }
   }, [text]);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const remaining = MAX_IMAGES - images.length;
     const selected = files.slice(0, remaining);
 
-    setImages((prev) => [...prev, ...selected]);
-    selected.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setImagePreviews((prev) => [...prev, ev.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    // Compress images in parallel before adding to state
+    setIsCompressing(true);
+    try {
+      const compressed = await compressImages(selected);
+      setImages((prev) => [...prev, ...compressed]);
+      compressed.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (ev.target?.result) {
+            setImagePreviews((prev) => [...prev, ev.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    } catch {
+      // Fallback: use originals if compression fails
+      setImages((prev) => [...prev, ...selected]);
+      selected.forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (ev.target?.result) {
+            setImagePreviews((prev) => [...prev, ev.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    } finally {
+      setIsCompressing(false);
+    }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -82,26 +103,51 @@ function ComposeForm() {
   }, [images]);
 
   const handleEditorComplete = useCallback(
-    (processedBlobs: Blob[]) => {
+    async (processedBlobs: Blob[]) => {
       setShowEditor(false);
-      // Replace original files with processed blobs
-      const processedFiles = processedBlobs.map(
-        (blob, i) =>
-          new File([blob], `edited_${Date.now()}_${i}.jpg`, { type: 'image/jpeg' })
-      );
-      setImages(processedFiles);
+      setIsCompressing(true);
+      try {
+        // Compress the edited results before adding to state
+        const compressedBlobs = await compressImages(processedBlobs);
+        const processedFiles = compressedBlobs.map(
+          (file, i) =>
+            new File([file], `edited_${Date.now()}_${i}.jpg`, { type: 'image/jpeg' })
+        );
+        setImages(processedFiles);
 
-      // Update previews
-      const previewPromises = processedFiles.map(
-        (file) =>
-          new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (ev) => resolve(ev.target?.result as string);
-            reader.readAsDataURL(file);
-          })
-      );
-      Promise.all(previewPromises).then((previews) => setImagePreviews(previews));
-      toast.success('Image edited successfully!');
+        // Update previews
+        const previewPromises = processedFiles.map(
+          (file) =>
+            new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (ev) => resolve(ev.target?.result as string);
+              reader.readAsDataURL(file);
+            })
+        );
+        const previews = await Promise.all(previewPromises);
+        setImagePreviews(previews);
+        toast.success('Image edited and compressed!');
+      } catch {
+        // Fallback: use un-compressed originals
+        const processedFiles = processedBlobs.map(
+          (blob, i) =>
+            new File([blob], `edited_${Date.now()}_${i}.jpg`, { type: 'image/jpeg' })
+        );
+        setImages(processedFiles);
+        const previewPromises = processedFiles.map(
+          (file) =>
+            new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (ev) => resolve(ev.target?.result as string);
+              reader.readAsDataURL(file);
+            })
+        );
+        const previews = await Promise.all(previewPromises);
+        setImagePreviews(previews);
+        toast.success('Image edited!');
+      } finally {
+        setIsCompressing(false);
+      }
     },
     []
   );
@@ -119,6 +165,7 @@ function ComposeForm() {
     try {
       const formData = new FormData();
       if (text.trim()) formData.append('text', text.trim());
+      // Images are already compressed on selection & after editing
       images.forEach((img) => formData.append('images', img));
 
       // Add reply context if replying
@@ -245,7 +292,14 @@ function ComposeForm() {
                   className="hidden"
                 />
                 <span className="text-xs text-muted-foreground">
-                  {images.length}/{MAX_IMAGES}
+                  {isCompressing ? (
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-brand" />
+                      Compressing…
+                    </span>
+                  ) : (
+                    `${images.length}/${MAX_IMAGES}`
+                  )}
                 </span>
               </div>
               <div className="text-sm text-muted-foreground tabular-nums">

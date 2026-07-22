@@ -106,7 +106,7 @@ export function ImageEditor({ files, onComplete, onCancel }: ImageEditorProps) {
       // Fallback: export directly from the first canvas
       const mainCanvas = container.querySelector('canvas');
       if (mainCanvas) {
-        const blob = await canvasToBlob(mainCanvas, 'image/jpeg', 0.92);
+        const blob = await canvasToBlob(mainCanvas, 'image/jpeg', 0.85);
         onComplete([blob]);
       } else {
         throw new Error('No canvas found');
