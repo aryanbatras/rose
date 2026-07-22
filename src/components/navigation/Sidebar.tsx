@@ -21,6 +21,7 @@ const NAV_ENTRIES: NavEntry[] = [
   { label: 'Search', path: '/search', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z', hideEffect: 'hide_search_nav' },
   { label: 'Notifications', path: '/notifications', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9', badge: true },
   { label: 'Feeds', path: '/discover', icon: 'M7 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h2zM17 3a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2V5a2 2 0 012-2h2z', hideEffect: 'hide_feeds_nav' },
+  { label: 'Groups', path: '/groups', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
   { label: 'Spells', path: '/spells', icon: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z' },
   { label: 'Bookmarks', path: '/bookmarks', icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z' },
   { label: 'Profile', path: '/profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', hideEffect: 'hide_profile_nav' },
@@ -76,7 +77,8 @@ export function Sidebar() {
           const isActive = entry.path === '/profile'
             ? pathname?.startsWith('/profile')
             : pathname === entry.path || pathname?.startsWith(entry.path + '/') ||
-              (entry.path === '/feed' && (pathname === '/feed' || pathname === '/'));
+              (entry.path === '/feed' && (pathname === '/feed' || pathname === '/')) ||
+              (entry.path === '/groups' && pathname?.startsWith('/groups/'));
 
           if (entry.path === '/bookmarks') {
             return (
