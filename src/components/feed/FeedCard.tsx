@@ -18,6 +18,9 @@ export function FeedCard({ item, reason }: FeedCardProps) {
   const [liked, setLiked] = useState(!!item.viewer?.like);
   const [likeCount, setLikeCount] = useState(item.likeCount);
   const [isLiking, setIsLiking] = useState(false);
+  const [reposted, setReposted] = useState(!!item.viewer?.repost);
+  const [repostCount, setRepostCount] = useState(item.repostCount);
+  const [isReposting, setIsReposting] = useState(false);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -40,6 +43,46 @@ export function FeedCard({ item, reason }: FeedCardProps) {
         if (res.ok) { setLiked(true); setLikeCount((c) => c + 1); }
       }
     } finally { setIsLiking(false); }
+  };
+
+  const handleRepost = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!session || isReposting) return;
+    setIsReposting(true);
+    try {
+      if (reposted && item.viewer?.repost) {
+        const res = await fetch('/api/interact/repost', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repostUri: item.viewer.repost }),
+        });
+        if (res.ok) { setReposted(false); setRepostCount((c) => Math.max(0, c - 1)); }
+      } else {
+        const res = await fetch('/api/interact/repost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uri: item.uri, cid: item.cid }),
+        });
+        if (res.ok) { setReposted(true); setRepostCount((c) => c + 1); }
+      }
+    } finally { setIsReposting(false); }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}/feed/${encodeURIComponent(item.uri)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      // Could add a toast here
+    } catch {
+      // Fallback: select text method
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
   };
 
   const authorDisplay = item.author.displayName || item.author.handle;
@@ -160,7 +203,19 @@ export function FeedCard({ item, reason }: FeedCardProps) {
           </button>
 
           <button
-            onClick={(e) => { e.stopPropagation(); }}
+            onClick={handleRepost}
+            disabled={isReposting}
+            className={`interact-btn ${reposted ? 'text-blue hover:text-blue-hover' : ''}`}
+            aria-label={reposted ? 'Undo repost' : 'Repost'}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="tabular-nums text-sm">{repostCount || ''}</span>
+          </button>
+
+          <button
+            onClick={handleShare}
             className="interact-btn"
             aria-label="Share"
           >
