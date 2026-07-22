@@ -28,7 +28,6 @@ export function BlueskyVideoPlayer({
 }: BlueskyVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hlsRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [showControls, setShowControls] = useState(false);
