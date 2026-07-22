@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAgentFromRequest } from '@/services/agent';
 import {
   CURATED_FEEDS,
+  FEED_CATEGORIES,
   getFeedGeneratorsInfo,
   getSuggestedFeeds,
   getPopularFeedGenerators,
@@ -50,7 +51,46 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ─── Default mode: Curated feeds with live metadata ───────────
+    // ─── Mode: Categories with feed counts ───────────────────────
+    if (mode === 'categories') {
+      const counts: Record<string, number> = {};
+      for (const cat of FEED_CATEGORIES) {
+        counts[cat] = CURATED_FEEDS.filter((f) => f.category === cat).length;
+      }
+      return NextResponse.json({ categories: FEED_CATEGORIES, counts });
+    }
+
+    // ─── Mode: Curated feeds by category ──────────────────────────
+    if (mode === 'curated') {
+      const category = searchParams.get('category') || 'all';
+      const filtered =
+        category === 'all'
+          ? CURATED_FEEDS
+          : CURATED_FEEDS.filter((f) => f.category === category);
+
+      const curatedUris = filtered.map((f) => f.uri);
+      const liveFeeds = await getFeedGeneratorsInfo(agent, curatedUris);
+
+      const merged = filtered.map((curated) => {
+        const live = liveFeeds.find((f) => f.uri === curated.uri);
+        return {
+          uri: curated.uri,
+          label: live?.label || curated.label,
+          description: live?.description || curated.description,
+          avatar: live?.avatar || curated.avatar,
+          category: curated.category,
+          likeCount: (live as any)?.likeCount ?? 0,
+        };
+      });
+
+      return NextResponse.json({
+        feeds: merged,
+        category,
+        total: CURATED_FEEDS.length,
+      });
+    }
+
+    // ─── Fallback: curated all ────────────────────────────────────
     const curatedUris = CURATED_FEEDS.map((f) => f.uri);
     const liveFeeds = await getFeedGeneratorsInfo(agent, curatedUris);
 
@@ -61,10 +101,11 @@ export async function GET(request: NextRequest) {
         label: live?.label || curated.label,
         description: live?.description || curated.description,
         avatar: live?.avatar || curated.avatar,
+        category: curated.category,
       };
     });
 
-    return NextResponse.json({ feeds: merged });
+    return NextResponse.json({ feeds: merged, total: CURATED_FEEDS.length });
   } catch (error) {
     console.error('Feed generators API error:', error);
     return NextResponse.json({ error: 'Failed to fetch feeds' }, { status: 500 });
