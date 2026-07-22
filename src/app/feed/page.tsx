@@ -280,7 +280,10 @@ export default function FeedPage() {
   }
 
   const allPosts = data?.pages.flatMap((page: any) => page.items || []) ?? [];
-  const filteredPosts = applyClientFilters(allPosts, content, mute);
+  const uniquePosts = Array.from(
+    new Map(allPosts.map((p: any) => [p.uri, p])).values()
+  );
+  const filteredPosts = applyClientFilters(uniquePosts, content, mute);
 
   return (
     <>
@@ -349,10 +352,10 @@ export default function FeedPage() {
       ) : filteredPosts.length === 0 ? (
         <div className="py-20 text-center">
           <p className="text-lg font-medium text-foreground">
-            {allPosts.length > 0 ? 'No posts match your filters' : 'Welcome to VoiceFlow!'}
+            {uniquePosts.length > 0 ? 'No posts match your filters' : 'Welcome to VoiceFlow!'}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            {allPosts.length > 0
+            {uniquePosts.length > 0
               ? 'Try adjusting your filters'
               : 'Follow some users to see their posts here'}
           </p>
