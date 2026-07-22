@@ -2,7 +2,6 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { useFollowUser, useUnfollowUser } from '@/hooks/useProfile';
 
 interface ProfileHeaderProps {
@@ -28,82 +27,72 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
   return (
     <div>
       {/* Banner */}
-      <div className="h-32 bg-gradient-to-br from-brand/30 to-brand-muted sm:h-40">
+      <div className="profile-banner">
         {profile.banner && (
-          <img
-            src={profile.banner}
-            alt=""
-            className="h-full w-full object-cover"
-          />
+          <img src={profile.banner} alt="" className="h-full w-full object-cover" />
         )}
       </div>
 
-      {/* Profile info */}
       <div className="px-4 pb-4">
-        <div className="-mt-10 flex items-end justify-between mb-3">
+        {/* Avatar + Follow button row */}
+        <div className="profile-avatar-wrap flex items-end justify-between">
           <Avatar
             src={profile.avatar}
             alt={profile.displayName || profile.handle}
             size="xl"
             className="ring-4 ring-surface-base"
           />
-          {!isOwnProfile && session && (
-            <Button
-              variant={isFollowing ? 'outline' : 'primary'}
-              size="sm"
+          {!isOwnProfile && session ? (
+            <button
               onClick={handleFollowToggle}
               disabled={followMutation.isPending || unfollowMutation.isPending}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition-colors ${
+                isFollowing
+                  ? 'border border-border bg-transparent text-foreground hover:border-destructive hover:text-destructive hover:bg-destructive/10'
+                  : 'bg-brand text-black hover:bg-brand-hover'
+              }`}
             >
               {isFollowing ? 'Following' : 'Follow'}
-            </Button>
-          )}
-          {isOwnProfile && (
+            </button>
+          ) : (
             <a
               href="/settings"
-              className="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="rounded-full border border-border px-5 py-2 text-sm font-bold text-foreground hover:bg-accent transition-colors"
             >
               Edit Profile
             </a>
           )}
         </div>
 
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-foreground">
-            {profile.displayName || profile.handle}
-          </h1>
-          <p className="text-sm text-muted-foreground">@{profile.handle}</p>
-        </div>
+        {/* Name and handle */}
+        <h1 className="text-xl font-bold text-foreground mt-2">
+          {profile.displayName || profile.handle}
+        </h1>
+        <p className="text-sm text-muted-foreground">@{profile.handle}</p>
 
+        {/* Bio */}
         {profile.description && (
-          <p className="mt-3 text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+          <p className="mt-3 text-[15px] text-foreground whitespace-pre-wrap leading-normal">
             {profile.description}
           </p>
         )}
 
         {/* Stats */}
-        <div className="mt-4 flex items-center gap-5">
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-semibold text-foreground tabular-nums">
-              {profile.postsCount ?? 0}
-            </span>
-            <span className="text-sm text-muted-foreground">posts</span>
-          </div>
-          <button className="flex items-center gap-1 hover:underline">
-            <span className="text-sm font-semibold text-foreground tabular-nums">
-              {profile.followersCount ?? 0}
-            </span>
-            <span className="text-sm text-muted-foreground">followers</span>
-          </button>
-          <button className="flex items-center gap-1 hover:underline">
-            <span className="text-sm font-semibold text-foreground tabular-nums">
-              {profile.followsCount ?? 0}
-            </span>
-            <span className="text-sm text-muted-foreground">following</span>
-          </button>
+        <div className="mt-3 flex items-center gap-5">
+          <span className="text-sm text-muted-foreground">
+            <strong className="text-foreground font-semibold tabular-nums">{profile.postsCount ?? 0}</strong> posts
+          </span>
+          <span className="text-sm text-muted-foreground">
+            <strong className="text-foreground font-semibold tabular-nums">{profile.followersCount ?? 0}</strong> followers
+          </span>
+          <span className="text-sm text-muted-foreground">
+            <strong className="text-foreground font-semibold tabular-nums">{profile.followsCount ?? 0}</strong> following
+          </span>
         </div>
 
-        {profile.joinedViaStarterPack && profile.createdAt && (
-          <p className="mt-2 text-xs text-muted-foreground">
+        {/* Join date */}
+        {profile.createdAt && (
+          <p className="mt-2 text-sm text-muted-foreground">
             Joined {new Date(profile.createdAt).toLocaleDateString('en-US', {
               month: 'long',
               year: 'numeric',

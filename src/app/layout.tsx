@@ -1,16 +1,13 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import { Geist, Plus_Jakarta_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { Providers } from '@/components/providers';
+import { Sidebar } from '@/components/navigation/Sidebar';
+import { TrendsSidebar } from '@/components/navigation/TrendsSidebar';
 import './globals.css';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
   subsets: ['latin'],
 });
 
@@ -23,7 +20,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: 'VoiceFlow',
-  description: 'The social network that listens',
+  description: 'A social network powered by the AT Protocol',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
 };
 
@@ -33,16 +30,20 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <meta name="color-scheme" content="dark" />
         <meta name="theme-color" content="#0a0a0a" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} antialiased bg-surface-base text-foreground`}
+        className={`${geistSans.variable} ${plusJakartaSans.variable} antialiased bg-surface-base text-foreground`}
       >
         <Providers>
-          {children}
+          <div className="app-layout">
+            <Sidebar />
+            <main className="app-main">
+              {children}
+            </main>
+            <TrendsSidebar />
+          </div>
         </Providers>
         <Toaster
           position="top-center"

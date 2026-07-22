@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgentForSession } from '@/services/agent';
-import { createPost, uploadBlob } from '@/services/posts';
+import { createPost } from '@/services/posts';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
+    const sessionCookie = cookieStore.get('session') || cookieStore.get('voiceflow_session');
     if (!sessionCookie) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
@@ -17,47 +17,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Session expired' }, { status: 401 });
     }
 
-    const { text, audioData, audioMimeType, duration, tags, mood } = await request.json();
-
-    let embed;
-    if (audioData && audioMimeType) {
-      const binaryStr = atob(audioData);
-      const bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i);
-      }
-
-      const blob = await uploadBlob(agent, bytes, audioMimeType);
-
-      // Create custom voice post record
-      const voiceRecord = {
-        $type: 'voiceflow.voice.post',
-        videoBlob: blob,
-        duration: duration || 0,
-        text: text || '',
-        tags: tags || [],
-        mood: mood || '',
-        transcript: '',
-        createdAt: new Date().toISOString(),
-      };
-
-      await agent.com.atproto.repo.createRecord({
-        repo: agent.session!.did,
-        collection: 'voiceflow.voice.post',
-        record: voiceRecord as any,
-      });
-
-      return NextResponse.json({ success: true, type: 'voice' });
+    const { text } = await request.json();
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
+    if (text.trim().length > 300) {
+      return NextResponse.json({ error: 'Post must be 300 characters or less' }, { status: 400 });
     }
 
-    // Regular text post
-    const tagsToAdd = tags?.length
-      ? tags.map((t: string) => `#${t}`).join(' ')
-      : '';
-    const postText = [text, tagsToAdd].filter(Boolean).join('\n\n');
-
-    await createPost(agent, postText);
-    return NextResponse.json({ success: true, type: 'text' });
+    await createPost(agent, text.trim());
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Compose API error:', error);
     return NextResponse.json({ error: 'Failed to create post' }, { status: 500 });

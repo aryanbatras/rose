@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { Navbar } from '@/components/navigation/Navbar';
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -43,7 +42,6 @@ export default function MessagesPage() {
         </div>
       </main>
 
-      <Navbar />
     </div>
   );
 }

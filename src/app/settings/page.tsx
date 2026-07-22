@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Navbar } from '@/components/navigation/Navbar';
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
@@ -106,7 +105,6 @@ export default function SettingsPage() {
         </div>
       </main>
 
-      <Navbar />
     </div>
   );
 }

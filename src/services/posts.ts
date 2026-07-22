@@ -2,7 +2,7 @@
 
 import { BskyAgent } from '@atproto/api';
 import { revalidatePath } from 'next/cache';
-import type { FeedItem, VoicePostRecord, PaginatedResponse } from '@/types/atproto';
+import type { FeedItem, PaginatedResponse } from '@/types/atproto';
 
 export async function getTimeline(
   agent: BskyAgent,
@@ -70,38 +70,6 @@ export async function createPost(
   const response = await agent.post(post);
   revalidatePath('/feed');
   return response;
-}
-
-export async function createVoicePost(
-  agent: BskyAgent,
-  videoBlob: any,
-  metadata: {
-    duration: number;
-    transcript?: string;
-    text?: string;
-    tags?: string[];
-    mood?: string;
-  }
-): Promise<any> {
-  const record: VoicePostRecord = {
-    $type: 'voiceflow.voice.post',
-    videoBlob,
-    duration: metadata.duration,
-    transcript: metadata.transcript || '',
-    text: metadata.text || '',
-    tags: metadata.tags || [],
-    mood: metadata.mood || '',
-    createdAt: new Date().toISOString(),
-  };
-
-  await agent.com.atproto.repo.createRecord({
-    repo: agent.session!.did,
-    collection: 'voiceflow.voice.post',
-    record,
-  });
-
-  revalidatePath('/feed');
-  return record;
 }
 
 export async function deletePost(agent: BskyAgent, uri: string): Promise<void> {

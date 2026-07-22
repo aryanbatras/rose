@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSuggestions } from '@/hooks/useProfile';
 import { Avatar } from '@/components/ui/avatar';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Navbar } from '@/components/navigation/Navbar';
 
 export default function DiscoverPage() {
   const router = useRouter();
@@ -105,7 +104,6 @@ export default function DiscoverPage() {
         </section>
       </main>
 
-      <Navbar />
     </div>
   );
 }

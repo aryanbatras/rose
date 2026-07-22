@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePostThread } from '@/hooks/useFeed';
 import { FeedCard } from '@/components/feed/FeedCard';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Navbar } from '@/components/navigation/Navbar';
 import { useEffect } from 'react';
 
 export default function PostThreadPage() {
@@ -77,15 +76,9 @@ export default function PostThreadPage() {
       <main className="mx-auto max-w-lg pb-20">
         {/* Main post */}
         {'post' in thread ? (
-          <FeedCard
-            item={thread.post}
-            isVoicePost={thread.post?.record?.$type === 'voiceflow.voice.post'}
-          />
+          <FeedCard item={thread.post} />
         ) : (
-          <FeedCard
-            item={thread as any}
-            isVoicePost={(thread as any)?.record?.$type === 'voiceflow.voice.post'}
-          />
+          <FeedCard item={thread as any} />
         )}
 
         {/* Replies */}
@@ -95,14 +88,11 @@ export default function PostThreadPage() {
               <FeedCard
                 key={`${reply.uri || reply.post?.uri}-${index}`}
                 item={reply.post || reply}
-                isVoicePost={(reply.post?.record?.$type || reply.record?.$type) === 'voiceflow.voice.post'}
               />
             ))}
           </div>
         )}
       </main>
-
-      <Navbar />
     </div>
   );
 }

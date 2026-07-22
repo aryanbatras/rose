@@ -7,7 +7,6 @@ import { useNotifications, useMarkRead } from '@/hooks/useNotifications';
 import { NotificationSkeleton } from '@/components/ui/skeleton';
 import { formatRelativeTime } from '@/lib/time';
 import { Avatar } from '@/components/ui/avatar';
-import { Navbar } from '@/components/navigation/Navbar';
 
 function NotificationCard({ item }: { item: any }) {
   const router = useRouter();
@@ -123,7 +122,6 @@ export default function NotificationsPage() {
         )}
       </main>
 
-      <Navbar />
     </div>
   );
 }

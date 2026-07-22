@@ -1,4 +1,5 @@
 // AT Protocol type definitions for VoiceFlow
+// Only includes types supported by Bluesky/AT Protocol infrastructure
 
 export type DID = string & { __brand: 'did' };
 export type CID = string & { __brand: 'cid' };
@@ -19,45 +20,6 @@ export interface PostRecord {
   facets?: Facet[];
   embed?: Embed;
   reply?: ReplyRef;
-}
-
-export interface VoicePostRecord {
-  $type: 'voiceflow.voice.post';
-  videoBlob: BlobRef;
-  duration: number;
-  transcript?: string;
-  text?: string;
-  tags?: string[];
-  mood?: string;
-  waveformData?: number[];
-  createdAt: string;
-  facets?: Facet[];
-  [x: string]: unknown;
-}
-
-export interface MusicPreferenceRecord {
-  $type: 'voiceflow.music.preference';
-  favoriteSongs?: SongEntry[];
-  favoriteGenres?: string[];
-  updatedAt: string;
-  [x: string]: unknown;
-}
-
-export interface VoiceBioRecord {
-  $type: 'voiceflow.actor.bio';
-  bioBlob: BlobRef;
-  duration: number;
-  transcript?: string;
-  createdAt: string;
-  [x: string]: unknown;
-}
-
-export interface SongEntry {
-  title: string;
-  artist: string;
-  platform: 'spotify' | 'appleMusic' | 'youtubeMusic' | 'other';
-  platformUrl?: string;
-  externalId?: string;
 }
 
 export interface BlobRef {
@@ -88,7 +50,7 @@ export interface Embed {
     uri: string;
     title: string;
     description: string;
-    thumb?: BlobRef;
+    thumb?: string;
   };
   record?: {
     uri: string;
@@ -105,7 +67,7 @@ export interface FeedItem {
   uri: string;
   cid: string;
   author: ActorView;
-  record: PostRecord | VoicePostRecord;
+  record: PostRecord;
   indexedAt: string;
   likeCount: number;
   replyCount: number;
@@ -151,7 +113,7 @@ export interface NotificationItem {
   author: ActorView;
   reason: 'like' | 'repost' | 'follow' | 'mention' | 'reply' | 'quote';
   reasonSubject?: string;
-  record: PostRecord | VoicePostRecord;
+  record: PostRecord;
   isRead: boolean;
   indexedAt: string;
   labels?: Label[];
@@ -195,6 +157,5 @@ export interface PaginatedResponse<T> {
   cursor?: string;
 }
 
-export type FeedType = 'following' | 'trending' | 'discover' | 'music';
-export type ContentType = 'voice' | 'text' | 'image';
+export type FeedType = 'following' | 'trending' | 'discover';
 export type NotificationFilter = 'all' | 'likes' | 'replies' | 'follows' | 'mentions';

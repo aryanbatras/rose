@@ -7,7 +7,6 @@ import { useDebouncedSearch, useSearchPosts, useSearchActors } from '@/hooks/use
 import { FeedCard } from '@/components/feed/FeedCard';
 import { Avatar } from '@/components/ui/avatar';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Navbar } from '@/components/navigation/Navbar';
 
 export default function SearchPage() {
   const router = useRouter();
@@ -143,7 +142,7 @@ export default function SearchPage() {
                   <FeedCard
                     key={`${item.uri}-${index}`}
                     item={item}
-                    isVoicePost={item.record?.$type === 'voiceflow.voice.post'}
+                   
                   />
                 ))}
               </div>
@@ -159,7 +158,6 @@ export default function SearchPage() {
         )}
       </main>
 
-      <Navbar />
     </div>
   );
 }

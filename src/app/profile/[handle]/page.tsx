@@ -7,7 +7,6 @@ import { useAuthorFeed } from '@/hooks/useFeed';
 import { FeedCard } from '@/components/feed/FeedCard';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSkeleton, FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Navbar } from '@/components/navigation/Navbar';
 import { useEffect } from 'react';
 
 export default function ProfilePage() {
@@ -28,7 +27,6 @@ export default function ProfilePage() {
     return (
       <div className="min-h-[100dvh] bg-surface-base">
         <ProfileSkeleton />
-        <Navbar />
       </div>
     );
   }
@@ -49,7 +47,6 @@ export default function ProfilePage() {
         <main className="mx-auto max-w-lg px-4 py-20 text-center">
           <p className="text-muted-foreground">User not found</p>
         </main>
-        <Navbar />
       </div>
     );
   }
@@ -93,16 +90,10 @@ export default function ProfilePage() {
           </div>
         ) : (
           posts.map((item: any, index: number) => (
-            <FeedCard
-              key={`${item.uri}-${index}`}
-              item={item}
-              isVoicePost={item.record?.$type === 'voiceflow.voice.post'}
-            />
+            <FeedCard key={`${item.uri}-${index}`} item={item} />
           ))
         )}
       </main>
-
-      <Navbar />
     </div>
   );
 }

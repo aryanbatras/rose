@@ -3,7 +3,6 @@
 import { BskyAgent } from '@atproto/api';
 import { cookies } from 'next/headers';
 import type { SessionData, DID } from '@/types/atproto';
-import { MockBskyAgent } from '@/lib/mock-agent';
 
 const ATPROTO_SERVICE = process.env.ATPROTO_SERVICE_URL || 'https://bsky.social';
 
@@ -60,12 +59,6 @@ export async function resumeSession(
 export async function getAgentForSession(sessionData?: SessionData): Promise<BskyAgent | null> {
   try {
     const cookieStore = await cookies();
-
-    // Check for demo mode
-    const demoMode = cookieStore.get('demo_mode');
-    if (demoMode?.value === 'true') {
-      return new MockBskyAgent() as unknown as BskyAgent;
-    }
 
     // If session data is provided directly, use it
     if (sessionData) {
