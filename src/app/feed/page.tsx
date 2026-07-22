@@ -18,7 +18,7 @@ import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { StoriesRow } from '@/components/feed/StoriesRow';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Heart, MessageCircle, Play, Image, Plus } from 'lucide-react';
+import { Heart, MessageCircle, Play, Image, LayoutGrid, List } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
 function applyClientFilters(posts: FeedItem[], content: any, mute: any): FeedItem[] {
@@ -34,19 +34,25 @@ function applyClientFilters(posts: FeedItem[], content: any, mute: any): FeedIte
   return filtered;
 }
 
+/** Grid view: ONLY shows posts with actual image or video embeds (no links/external cards) */
 function GridView({ items }: { items: FeedItem[] }) {
   const router = useRouter();
+  // Strictly filter to only images and videos, NOT external links
   const mediaItems = items.filter((p) => {
     const em = p.record.embed;
     if (!em) return false;
     const t = em.$type || '';
-    return t.includes('images') || t.includes('video') || t.includes('external');
+    return t.includes('images') || t.includes('video');
   });
 
   if (mediaItems.length === 0) {
     return (
       <div className="py-16 text-center">
-        <p className="text-muted-foreground">No media posts to show in grid view</p>
+        <div className="h-14 w-14 mx-auto rounded-2xl bg-brand/10 flex items-center justify-center mb-3">
+          <LayoutGrid className="h-6 w-6 text-brand/50" strokeWidth={1.5} />
+        </div>
+        <p className="text-base font-medium text-foreground">No media posts to show</p>
+        <p className="text-sm text-muted-foreground mt-1">Switch to classic view to see all posts</p>
       </div>
     );
   }
@@ -60,9 +66,11 @@ function GridView({ items }: { items: FeedItem[] }) {
     >
       {mediaItems.map((item) => {
         const em = item.record.embed;
-        const thumbUrl = em?.images?.[0]?.thumb || em?.images?.[0]?.fullsize || em?.external?.thumb || em?.thumbnail || em?.video?.thumbnail || null;
+        const images = em?.images || [];
+        const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
         const authorName = item.author.displayName || item.author.handle;
         const isVideo = (em?.$type || '').includes('video');
+        const isMultiImage = images.length > 1;
 
         return (
           <motion.button
@@ -108,7 +116,7 @@ function GridView({ items }: { items: FeedItem[] }) {
               </div>
             )}
 
-            {em && em.images && em.images.length > 1 && (
+            {isMultiImage && (
               <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
                 <Image className="h-3.5 w-3.5 text-white" />
               </div>
@@ -117,110 +125,6 @@ function GridView({ items }: { items: FeedItem[] }) {
         );
       })}
     </motion.div>
-  );
-}
-
-function CompactView({ items }: { items: FeedItem[] }) {
-  const router = useRouter();
-  return (
-    <div>
-      {items.map((item) => (
-        <button
-          key={`${item.uri}-${item.cid}`}
-          onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
-          className="flex w-full items-start gap-3 px-4 py-2.5 hover:bg-accent/30 transition-colors text-left"
-        >
-          <div className="h-8 w-8 shrink-0 rounded-full bg-accent overflow-hidden">
-            {item.author.avatar && <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground truncate">{item.author.displayName || item.author.handle}</span>
-              <span className="text-xs text-muted-foreground shrink-0">{new Date(item.indexedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-            </div>
-            <p className="text-sm text-foreground/90 line-clamp-2 leading-snug mt-0.5">{item.record.text}</p>
-            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-              <span>{item.likeCount} likes</span>
-              <span>{item.replyCount} replies</span>
-            </div>
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ReelsView({ items }: { items: FeedItem[] }) {
-  const router = useRouter();
-  const videoItems = items.filter((p) => (p.record.embed?.$type || '').includes('video'));
-
-  if (videoItems.length === 0) {
-    return (
-      <div className="py-16 text-center">
-        <p className="text-muted-foreground">No video posts to show in Reels view</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col">
-      {videoItems.map((item, index) => (
-        <motion.div
-          key={`${item.uri}-${item.cid}`}
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, delay: index * 0.05, ease: 'easeOut' }}
-          className="relative h-[100dvh] w-full snap-start snap-always"
-        >
-          <div className="absolute inset-0">
-            <BlueskyVideoPlayer item={item} variant="reels" autoPlay muted />
-          </div>
-
-          <div className="absolute bottom-0 left-0 right-0 p-6 pb-12 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none">
-            <div className="flex items-center gap-3 pointer-events-auto">
-              <button onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }} className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full overflow-hidden ring-2 ring-white/50 shrink-0">
-                  {item.author.avatar ? <img src={item.author.avatar} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-accent" />}
-                </div>
-                <div className="text-left">
-                  <span className="text-white font-semibold text-[15px] block drop-shadow-lg">{item.author.displayName || item.author.handle}</span>
-                  <span className="text-white/70 text-sm drop-shadow-lg">@{item.author.handle}</span>
-                </div>
-              </button>
-            </div>
-            {item.record.text && <p className="text-white/90 text-[15px] mt-3 line-clamp-2 drop-shadow-lg pointer-events-auto">{item.record.text}</p>}
-          </div>
-
-          <div className="absolute bottom-24 right-4 flex flex-col items-center gap-5 z-10">
-            <button
-              onClick={(e) => { e.stopPropagation(); }}
-              className="flex flex-col items-center gap-1 text-white drop-shadow-lg"
-              aria-label="Like"
-            >
-              <Heart className="h-7 w-7" />
-              <span className="text-xs font-medium">{item.likeCount}</span>
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); router.push(`/feed/${encodeURIComponent(item.uri)}`); }}
-              className="flex flex-col items-center gap-1 text-white drop-shadow-lg"
-              aria-label="Reply"
-            >
-              <MessageCircle className="h-7 w-7" />
-              <span className="text-xs font-medium">{item.replyCount}</span>
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }}
-              className="flex flex-col items-center gap-1 text-white drop-shadow-lg"
-              aria-label="Profile"
-            >
-              <div className="h-8 w-8 rounded-full overflow-hidden ring-2 ring-white/50">
-                {item.author.avatar ? <img src={item.author.avatar} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-accent" />}
-              </div>
-            </button>
-          </div>
-        </motion.div>
-      ))}
-    </div>
   );
 }
 
@@ -273,9 +177,20 @@ export default function FeedPage() {
         <div className="flex items-center justify-between px-4 h-[56px]">
           <div className="flex items-center gap-2">
             <FeedSourcePicker />
+            {mode === 'grid' && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20">
+                <LayoutGrid className="h-3.5 w-3.5 text-brand" />
+                <span className="text-[11px] font-semibold text-brand">Grid</span>
+              </div>
+            )}
+            {mode === 'classic' && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue/10 border border-blue/20">
+                <List className="h-3.5 w-3.5 text-blue" />
+                <span className="text-[11px] font-semibold text-blue">Classic</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <FilterPanel />
             <ViewModeToggle />
             <button
               onClick={() => setShowShortcutHelp(!showShortcutHelp)}
@@ -283,7 +198,7 @@ export default function FeedPage() {
               aria-label="Keyboard shortcuts"
               title="Keyboard shortcuts (?)"
             >
-              <Plus className="h-4 w-4" />
+              <span className="text-xs font-bold font-mono">?</span>
             </button>
           </div>
         </div>
@@ -315,7 +230,8 @@ export default function FeedPage() {
                   { key: 'l', desc: 'Like post' },
                   { key: '/', desc: 'Focus search' },
                   { key: 'n', desc: 'New post' },
-                  { key: '1-4', desc: 'Switch view mode' },
+                  { key: '1', desc: 'Grid view' },
+                  { key: '2', desc: 'Classic view' },
                   { key: 'Esc', desc: 'Close modals' },
                   { key: '?', desc: 'Show help' },
                 ].map(({ key, desc }) => (
@@ -333,7 +249,7 @@ export default function FeedPage() {
       {!isTrending && (
         <>
           {isLoading ? (
-            <div className={mode === 'compact' ? '' : 'space-y-0'}>
+            <div className="space-y-0">
               {Array.from({ length: 8 }).map((_, i) => <FeedCardSkeleton key={i} />)}
             </div>
           ) : error ? (
@@ -343,8 +259,20 @@ export default function FeedPage() {
             </div>
           ) : filteredPosts.length === 0 ? (
             <div className="py-20 text-center">
-              <p className="text-lg font-medium text-foreground">{uniquePosts.length > 0 ? 'No posts match your filters' : 'Welcome to Rose!'}</p>
-              <p className="text-sm text-muted-foreground mt-1">{uniquePosts.length > 0 ? 'Try adjusting your filters' : 'Follow some users to see their posts here'}</p>
+              <p className="text-lg font-medium text-foreground">
+                {mode === 'grid' && uniquePosts.length > 0
+                  ? 'No media posts in your feed'
+                  : uniquePosts.length > 0
+                    ? 'No posts match your filters'
+                    : 'Welcome to Rose!'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {mode === 'grid' && uniquePosts.length > 0
+                  ? 'Switch to classic view to see text posts and links'
+                  : uniquePosts.length > 0
+                    ? 'Try adjusting your filters'
+                    : 'Follow some users to see their posts here'}
+              </p>
             </div>
           ) : (
             <AnimatePresence mode="wait">
@@ -363,8 +291,6 @@ export default function FeedPage() {
                   </div>
                 )}
                 {mode === 'grid' && <GridView items={filteredPosts} />}
-                {mode === 'reels' && <ReelsView items={filteredPosts} />}
-                {mode === 'compact' && <CompactView items={filteredPosts} />}
               </motion.div>
               <div ref={loadMoreRef} className="py-8">
                 {isFetchingNextPage && Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)}

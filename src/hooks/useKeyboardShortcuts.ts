@@ -47,16 +47,10 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers = {}) {
           h.onEscape?.();
           break;
         case '1':
-          setMode('classic');
-          break;
-        case '2':
           setMode('grid');
           break;
-        case '3':
-          setMode('reels');
-          break;
-        case '4':
-          setMode('compact');
+        case '2':
+          setMode('classic');
           break;
       }
     }

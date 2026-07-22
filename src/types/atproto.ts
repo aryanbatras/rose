@@ -180,7 +180,7 @@ export type FeedType = 'following' | 'trending' | 'discover';
 export type NotificationFilter = 'all' | 'likes' | 'replies' | 'follows' | 'mentions';
 
 // ─── View Modes ────────────────────────────────────
-export type ViewMode = 'classic' | 'grid' | 'reels' | 'compact';
+export type ViewMode = 'grid' | 'classic';
 
 // ─── Filter Types ───────────────────────────────────
 export interface ContentFilters {
