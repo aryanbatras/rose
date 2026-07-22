@@ -171,8 +171,9 @@ export function evaluateCondition(condition: SpellCondition): boolean {
 
     case 'session_duration':
     case 'daily_count':
-      // Evaluated by the store with stored values — always true here,
-      // the store calls evaluateStoredCondition with actual values
+      // Evaluated by computeActiveEffects() in the store with stored values.
+      // In this pure helper the condition is always true — the store's
+      // computeActiveEffects function passes actual sessionStartTime etc.
       return true;
 
     case 'interval':

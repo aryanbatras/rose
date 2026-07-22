@@ -1,25 +1,50 @@
 'use client';
 
 import { useEffect, useRef, useMemo } from 'react';
-import { useSpellStore } from '@/stores/spell-store';
+import { useSpellStore, computeActiveEffects } from '@/stores/spell-store';
 import { toast } from 'sonner';
+import { PREDEFINED_SPELLS } from '@/types/spells';
 import type { SpellEffect } from '@/types/spells';
 
 /**
  * Hook that reads all active spell effects and returns convenient boolean flags.
  * Also manages interval timers for reminder-based spells (e.g., Hydrate).
+ *
+ * NOTE: This hook selects stable primitive/array values from the store individually
+ * and then computes effects using useMemo. THIS IS CRITICAL — calling
+ * useSpellStore((s) => s.getActiveEffects()) directly would return a NEW array reference
+ * on every selector call, causing React's useSyncExternalStore to detect an infinite loop.
+ * See: "The result of getServerSnapshot should be cached to avoid an infinite loop"
  */
 export function useSpells() {
-  const effects: SpellEffect[] = useSpellStore((s) => s.getActiveEffects());
+  // ── Select stable primitive/array values (each is the same reference unless changed) ──
+  const castIds = useSpellStore((s) => s.castIds);
+  const customSpells = useSpellStore((s) => s.customSpells);
+  const sessionStartTime = useSpellStore((s) => s.sessionStartTime);
+  const dailyReplyCount = useSpellStore((s) => s.dailyReplyCount);
+  const lastActivityDate = useSpellStore((s) => s.lastActivityDate);
+
+  // ── Compute effects from stable deps ─────────────────────────────────────
+  const effects: SpellEffect[] = useMemo(
+    () =>
+      computeActiveEffects(
+        castIds,
+        customSpells,
+        sessionStartTime,
+        dailyReplyCount,
+        lastActivityDate
+      ),
+    [castIds, customSpells, sessionStartTime, dailyReplyCount, lastActivityDate]
+  );
+
   const lastReminderRef = useRef<number>(Date.now());
 
-  // Compute interval minutes from active interval spells
+  // Compute interval minutes from spell definitions (not from effects — stable)
   const intervalMinutes = useMemo(() => {
-    const state = useSpellStore.getState();
-    const allSpells = state.getAllSpells();
+    const allSpells = [...PREDEFINED_SPELLS, ...customSpells];
     for (const spell of allSpells) {
       if (
-        state.castIds.includes(spell.id) &&
+        castIds.includes(spell.id) &&
         spell.condition.type === 'interval' &&
         spell.condition.intervalMinutes
       ) {
@@ -27,9 +52,7 @@ export function useSpells() {
       }
     }
     return null;
-    // Re-compute when effects change (which means spell state changed)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effects]);
+  }, [castIds, customSpells]);
 
   // Interval timer for reminder-based spells
   useEffect(() => {
@@ -41,8 +64,9 @@ export function useSpells() {
       if (elapsed >= intervalMinutes) {
         lastReminderRef.current = now;
 
-        // Find reminder message from active effects
-        const activeEffects = useSpellStore.getState().getActiveEffects();
+        // Find reminder message from active effects (uses getState — not a selector)
+        const state = useSpellStore.getState();
+        const activeEffects = state.getActiveEffects();
         const reminderEffect = activeEffects.find((e) => e.type === 'show_reminder');
         if (reminderEffect?.message) {
           toast(reminderEffect.message, {
@@ -51,7 +75,7 @@ export function useSpells() {
           });
         }
       }
-    }, 60_000); // Check every minute
+    }, 60_000);
 
     return () => clearInterval(id);
   }, [intervalMinutes]);

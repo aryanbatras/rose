@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { PREDEFINED_SPELLS, evaluateCondition } from '@/types/spells';
-import type { Spell, SpellEffect, SpellCondition } from '@/types/spells';
+import { PREDEFINED_SPELLS } from '@/types/spells';
+import type { Spell, SpellEffect } from '@/types/spells';
 
 interface SpellState {
   /** IDs of spells the user has learned */
@@ -39,12 +39,76 @@ interface SpellState {
   recordAction: (type: 'replies' | 'likes') => void;
   /** Reset session timer (call on login) */
   resetSession: () => void;
-  /** Evaluate a condition that depends on stored values */
-  evaluateStoredCondition: (condition: SpellCondition) => boolean;
 }
 
 function getTodayDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// ─── Pure helper: compute active effects from raw state ────────────
+// This is exported so the hook can use it with useMemo + stable selectors.
+/**
+ * Given the raw store values, compute which effects are currently active.
+ * This is a PURE function — no store access, no side effects.
+ */
+export function computeActiveEffects(
+  castIds: string[],
+  customSpells: Spell[],
+  sessionStartTime: number,
+  dailyReplyCount: number,
+  lastActivityDate: string
+): SpellEffect[] {
+  const effects: SpellEffect[] = [];
+  const allSpells = [...PREDEFINED_SPELLS, ...customSpells];
+
+  for (const spell of allSpells) {
+    if (!castIds.includes(spell.id)) continue;
+
+    // Evaluate condition with the provided stored values
+    const condition = spell.condition;
+    let conditionMet = false;
+
+    switch (condition.type) {
+      case 'always':
+        conditionMet = true;
+        break;
+
+      case 'time_range': {
+        const hour = new Date().getHours();
+        const start = condition.startHour ?? 0;
+        const end = condition.endHour ?? 8;
+        if (start <= end) conditionMet = hour >= start && hour < end;
+        else conditionMet = hour >= start || hour < end;
+        break;
+      }
+
+      case 'session_duration': {
+        const elapsed = (Date.now() - sessionStartTime) / 1000 / 60;
+        conditionMet = elapsed >= (condition.minutes ?? 15);
+        break;
+      }
+
+      case 'daily_count': {
+        const today = getTodayDate();
+        const count = lastActivityDate === today ? dailyReplyCount : 0;
+        conditionMet = count >= (condition.count ?? 10);
+        break;
+      }
+
+      case 'interval':
+        conditionMet = true;
+        break;
+
+      default:
+        conditionMet = false;
+    }
+
+    if (conditionMet) {
+      effects.push(...spell.effects);
+    }
+  }
+
+  return effects;
 }
 
 export const useSpellStore = create<SpellState>()(
@@ -97,36 +161,15 @@ export const useSpellStore = create<SpellState>()(
 
       resetSession: () => set({ sessionStartTime: Date.now() }),
 
-      evaluateStoredCondition: (condition) => {
-        const state = get();
-        switch (condition.type) {
-          case 'session_duration': {
-            const elapsed = (Date.now() - state.sessionStartTime) / 1000 / 60;
-            return elapsed >= (condition.minutes ?? 15);
-          }
-          case 'daily_count': {
-            const today = getTodayDate();
-            const count = state.lastActivityDate === today ? state.dailyReplyCount : 0;
-            return count >= (condition.count ?? 10);
-          }
-          default:
-            return evaluateCondition(condition);
-        }
-      },
-
       getActiveEffects: () => {
         const state = get();
-        const effects: SpellEffect[] = [];
-        const allSpells = [...PREDEFINED_SPELLS, ...state.customSpells];
-
-        for (const spell of allSpells) {
-          if (!state.castIds.includes(spell.id)) continue;
-          // Evaluate condition with stored values
-          if (!state.evaluateStoredCondition(spell.condition)) continue;
-          effects.push(...spell.effects);
-        }
-
-        return effects;
+        return computeActiveEffects(
+          state.castIds,
+          state.customSpells,
+          state.sessionStartTime,
+          state.dailyReplyCount,
+          state.lastActivityDate
+        );
       },
 
       isCast: (id) => get().castIds.includes(id),
