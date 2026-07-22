@@ -24,7 +24,7 @@ export function BookmarkButton({ item, size = 'sm' }: BookmarkButtonProps) {
           addBookmark(item);
         }
       }}
-      className={`interact-btn ${saved ? 'text-yellow-500' : ''}`}
+      className={`interact-btn ${saved ? 'text-brand' : ''}`}
       aria-label={saved ? 'Remove bookmark' : 'Bookmark'}
     >
       <svg

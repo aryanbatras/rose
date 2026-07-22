@@ -58,8 +58,7 @@ function BookmarksIcon() {
   return (
     <span className="relative">
       <Bookmark className="h-6 w-6" />
-      {count > 0 && (
-        <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow-500 px-1 text-[10px] font-bold text-white">
+      {count > 0 && (            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-white">
           {count > 99 ? '99+' : count}
         </span>
       )}
@@ -85,7 +84,7 @@ export function Sidebar() {
     <aside className="app-sidebar hidden sm:flex flex-col gap-1">
       <div className="px-3 py-3 mb-2">
         <h1 className="text-xl font-bold font-heading" style={{ color: 'var(--brand)' }}>
-          VoiceFlow
+          Rose
         </h1>
       </div>
 

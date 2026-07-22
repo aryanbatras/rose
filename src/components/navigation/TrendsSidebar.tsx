@@ -53,7 +53,7 @@ export function TrendsSidebar() {
             <a href="#" className="hover:underline">Privacy</a>
             <a href="#" className="hover:underline">About</a>
           </div>
-          <p>VoiceFlow · AT Protocol</p>
+          <p>Rose · AT Protocol</p>
         </div>
       </div>
     </aside>

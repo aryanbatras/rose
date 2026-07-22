@@ -32,7 +32,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="font-heading text-2xl font-bold tracking-tight" style={{ color: 'var(--brand)' }}>
-            VoiceFlow
+            Rose
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Sign in with your Bluesky account

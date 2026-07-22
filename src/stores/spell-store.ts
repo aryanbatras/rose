@@ -178,7 +178,7 @@ export const useSpellStore = create<SpellState>()(
       castCount: () => get().castIds.length,
     }),
     {
-      name: 'voiceflow-spells',
+      name: 'rose-spells',
       // Don't persist runtime counters — reinitialize on page load
       partialize: (state) => ({
         learnedIds: state.learnedIds,

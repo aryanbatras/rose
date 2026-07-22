@@ -198,8 +198,7 @@ export default function SettingsPage() {
 
         {/* About */}
         <section className="px-4 py-4 border-t border-border">
-          <h2 className="text-sm font-semibold text-foreground mb-3">About</h2>
-          <p className="text-sm text-muted-foreground">VoiceFlow v1.0.0 — A social network built on the AT Protocol.</p>
+          <h2 className="text-sm font-semibold text-foreground mb-3">About</h2>           <p className="text-sm text-muted-foreground">Rose v1.0.0 — A social network built on the AT Protocol.</p>
         </section>
 
         {/* Logout */}

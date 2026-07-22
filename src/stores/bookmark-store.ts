@@ -45,6 +45,6 @@ export const useBookmarkStore = create<BookmarkState>()(
 
       clearAll: () => set({ bookmarks: [] }),
     }),
-    { name: 'voiceflow-bookmarks' }
+    { name: 'rose-bookmarks' }
   )
 );

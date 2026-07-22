@@ -13,6 +13,6 @@ export const useViewModeStore = create<ViewModeState>()(
       mode: 'grid',
       setMode: (mode) => set({ mode }),
     }),
-    { name: 'voiceflow-view-mode' }
+    { name: 'rose-view-mode' }
   )
 );

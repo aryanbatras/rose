@@ -87,6 +87,6 @@ export const useFilterStore = create<FilterState>()(
         return count;
       },
     }),
-    { name: 'voiceflow-filters' }
+    { name: 'rose-filters' }
   )
 );

@@ -343,7 +343,7 @@ export default function FeedPage() {
             </div>
           ) : filteredPosts.length === 0 ? (
             <div className="py-20 text-center">
-              <p className="text-lg font-medium text-foreground">{uniquePosts.length > 0 ? 'No posts match your filters' : 'Welcome to VoiceFlow!'}</p>
+              <p className="text-lg font-medium text-foreground">{uniquePosts.length > 0 ? 'No posts match your filters' : 'Welcome to Rose!'}</p>
               <p className="text-sm text-muted-foreground mt-1">{uniquePosts.length > 0 ? 'Try adjusting your filters' : 'Follow some users to see their posts here'}</p>
             </div>
           ) : (

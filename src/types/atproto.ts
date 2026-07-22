@@ -1,4 +1,4 @@
-// AT Protocol type definitions for VoiceFlow
+// AT Protocol type definitions for Rose
 // Only includes types supported by Bluesky/AT Protocol infrastructure
 
 export type DID = string & { __brand: 'did' };

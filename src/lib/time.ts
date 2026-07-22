@@ -1,5 +1,5 @@
 /**
- * Shared time formatting utilities for VoiceFlow.
+ * Shared time formatting utilities for Rose.
  */
 
 export function formatRelativeTime(dateStr: string): string {

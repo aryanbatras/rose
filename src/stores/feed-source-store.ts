@@ -41,7 +41,7 @@ export const useFeedSourceStore = create<FeedSourceState>()(
       resetToDefault: () =>
         set({ activeSource: DEFAULT_SOURCE, savedFeeds: [] }),
     }),
-    { name: 'voiceflow-feed-sources' }
+    { name: 'rose-feed-sources' }
   )
 );
 

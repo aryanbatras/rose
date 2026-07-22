@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthStore>()(
       setError: (error) => set({ error }),
     }),
     {
-      name: 'voiceflow-auth',
+      name: 'rose-auth',
       partialize: (state) => ({
         session: state.session,
         isAuthenticated: state.isAuthenticated,

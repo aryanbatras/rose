@@ -124,7 +124,7 @@ export const PREDEFINED_SPELLS: Spell[] = [
     effects: [
       { type: 'hide_engagement_metrics' },
     ],
-    author: 'voiceflow',
+    author: 'rose.app',
     casts: 12,
   },
   {
@@ -135,7 +135,7 @@ export const PREDEFINED_SPELLS: Spell[] = [
     effects: [
       { type: 'hide_all_interactions' },
     ],
-    author: 'voiceflow',
+    author: 'rose.app',
     casts: 8,
   },
   {
@@ -148,7 +148,7 @@ export const PREDEFINED_SPELLS: Spell[] = [
       { type: 'hide_feeds_nav' },
       { type: 'hide_profile_nav' },
     ],
-    author: 'voiceflow',
+    author: 'rose.app',
     casts: 6,
   },
 ];

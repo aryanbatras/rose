@@ -15,12 +15,12 @@ const GUIDE_STEPS = [
   {
     num: 2,
     title: 'Generate an App Password',
-    description: 'In Bluesky Settings → App Passwords, create a new app password. Name it "VoiceFlow" so you can recognize it. Copy the generated password — it looks like "xxxx-xxxx-xxxx-xxxx".',
+    description: 'In Bluesky Settings → App Passwords, create a new app password. Name it "Rose" so you can recognize it. Copy the generated password — it looks like "xxxx-xxxx-xxxx-xxxx".',
     action: { label: 'Open Bluesky Settings', href: 'https://bsky.app/settings/app-passwords' },
   },
   {
     num: 3,
-    title: 'Sign In to VoiceFlow',
+    title: 'Sign In to Rose',
     description: 'Come back here and sign in using your Bluesky handle (or email) and the app password you just generated.',
     action: { label: 'I have an app password →', href: '/login' },
   },
@@ -87,8 +87,7 @@ export default function SignupPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-foreground">Account created!</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Welcome to VoiceFlow. Redirecting...</p>
+          <h2 className="text-xl font-bold text-foreground">Account created!</h2>           <p className="mt-1 text-sm text-muted-foreground">Welcome to Rose. Redirecting...</p>
         </div>
       </div>
     );
@@ -99,7 +98,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <h1 className="font-heading text-2xl font-bold tracking-tight" style={{ color: 'var(--brand)' }}>
-            VoiceFlow
+            Rose
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {mode === 'direct' ? 'Create your Bluesky account' : 'Get started in 3 simple steps'}

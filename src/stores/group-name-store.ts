@@ -34,7 +34,7 @@ export const useGroupNameStore = create<GroupNameState>()(
         }),
     }),
     {
-      name: 'voiceflow-group-names',
+      name: 'rose-group-names',
     }
   )
 );

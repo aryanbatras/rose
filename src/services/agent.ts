@@ -57,7 +57,7 @@ export async function resumeSession(
 export async function storeSession(session: SessionData): Promise<void> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
-  cookieStore.set('voiceflow_session', JSON.stringify(session), {
+  cookieStore.set('rose_session', JSON.stringify(session), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -73,7 +73,7 @@ export async function clearSession(): Promise<void> {
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    cookieStore.delete('voiceflow_session');
+    cookieStore.delete('rose_session');
   } catch {}
 }
 
@@ -90,7 +90,7 @@ export async function getAgentForSession(sessionData?: SessionData): Promise<Bsk
     // Fallback: try to read from cookie (for backwards compatibility)
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('voiceflow_session') || cookieStore.get('session');
+    const sessionCookie = cookieStore.get('rose_session') || cookieStore.get('session');
     if (!sessionCookie) return null;
     const parsed: SessionData = JSON.parse(sessionCookie.value);
     return await createAgentFromSession(parsed);
@@ -102,7 +102,7 @@ export async function getAgentForSession(sessionData?: SessionData): Promise<Bsk
 /**
  * Get agent from a NextRequest by checking (in order):
  * 1. X-AT-Session header (base64-encoded JSON session data from client localStorage)
- * 2. voiceflow_session cookie (httpOnly, set on login)
+ * 2. rose_session cookie (httpOnly, set on login)
  * Returns null if no valid auth is found.
  */
 export async function getAgentFromRequest(request: NextRequest): Promise<BskyAgent | null> {
@@ -134,7 +134,7 @@ export async function getAgentFromRequest(request: NextRequest): Promise<BskyAge
   }
 
   // Try 3: Cookie (backward compatibility)
-  const sessionCookie = request.cookies.get('voiceflow_session') || request.cookies.get('session');
+  const sessionCookie = request.cookies.get('rose_session') || request.cookies.get('session');
   if (sessionCookie) {
     try {
       const parsed: SessionData = JSON.parse(sessionCookie.value);

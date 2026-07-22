@@ -91,7 +91,7 @@ export function StoriesRow() {
           className="flex flex-col items-center gap-1.5 snap-start shrink-0 group"
         >
           <div className="relative">
-            <div className="h-[60px] w-[60px] rounded-full p-[3px] bg-gradient-to-br from-brand/60 via-brand to-yellow-500/60 group-hover:scale-105 transition-transform duration-200">
+            <div className="h-[60px] w-[60px] rounded-full p-[3px] bg-gradient-to-br from-brand/60 via-brand to-red-500/60 group-hover:scale-105 transition-transform duration-200">
               <div className="h-full w-full rounded-full bg-surface-base p-[2px]">
                 <Avatar
                   alt="You"
