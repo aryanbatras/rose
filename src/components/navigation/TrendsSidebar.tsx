@@ -34,32 +34,15 @@ export function TrendsSidebar() {
           />
         </div>
 
-        {/* Trending */}
-        <div className="trend-card">
-          <h2 className="text-lg font-bold text-foreground mb-3">Trending</h2>
-          <div className="space-y-3">
-            {[
-              { topic: '#ATProtocol', posts: '12.4K' },
-              { topic: '#VoiceSocial', posts: '8.2K' },
-              { topic: '#WebDev', posts: '6.7K' },
-              { topic: 'Bluesky Updates', posts: '5.1K' },
-              { topic: '#MusicMonday', posts: '3.9K' },
-            ].map((trend) => (
-              <div key={trend.topic} className="text-sm">
-                <p className="font-semibold text-foreground">{trend.topic}</p>
-                <p className="text-xs text-muted-foreground">{trend.posts} posts</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Suggested users */}
         {session && (
           <div className="trend-card">
-            <h2 className="text-lg font-bold text-foreground mb-3">Suggested</h2>
-            <p className="text-sm text-muted-foreground">
-              Follow more users to get suggestions
-            </p>
+            <h2 className="text-lg font-bold text-foreground mb-3">Quick Links</h2>
+            <div className="space-y-2 text-sm">
+              <a href="/discover" className="block text-muted-foreground hover:text-foreground transition-colors">Discover people</a>
+              <a href="/search" className="block text-muted-foreground hover:text-foreground transition-colors">Search</a>
+              <a href="/settings" className="block text-muted-foreground hover:text-foreground transition-colors">Settings</a>
+            </div>
           </div>
         )}
 

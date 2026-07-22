@@ -93,15 +93,7 @@ export default function DiscoverPage() {
           )}
         </section>
 
-        {/* Trending tags placeholder */}
-        <section className="px-4 pt-8">
-          <h2 className="text-sm font-semibold text-foreground mb-3">Trending</h2>
-          <div className="rounded-lg border border-border bg-surface-elevated p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Trending topics coming soon
-            </p>
-          </div>
-        </section>
+
       </main>
 
     </div>

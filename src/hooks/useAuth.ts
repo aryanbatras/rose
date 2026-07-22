@@ -3,6 +3,10 @@
 import { useCallback, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 
+// Global flag: session validation fires at most once per page load
+// regardless of how many components call useAuth().
+let sessionValidationStarted = false;
+
 /**
  * Auth-aware fetch that automatically attaches the session
  * from Zustand localStorage as an X-AT-Session header.
@@ -23,6 +27,10 @@ export function useAuth() {
   const store = useAuthStore();
 
   useEffect(() => {
+    // Session validation runs at most once — skip if already started
+    if (sessionValidationStarted) return;
+    sessionValidationStarted = true;
+
     async function validateSession() {
       const state = useAuthStore.getState();
       if (!state.session) {
