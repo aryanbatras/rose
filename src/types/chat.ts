@@ -66,3 +66,45 @@ export interface SendMessageInput {
   convoId: string;
   text: string;
 }
+
+// ─── Join Link Types ────────────────────────────────────────────
+
+export type JoinLinkStatus = 'valid' | 'disabled' | 'invalid';
+export type JoinRule = 'owner_invite' | 'member_invite' | 'anyone';
+
+/** Preview of a join link (returned by getJoinLinkPreviews) */
+export interface JoinLinkPreview {
+  status: JoinLinkStatus;
+  code: string;
+  // Valid preview fields
+  convoId?: string;
+  name?: string;
+  owner?: BasicProfileView;
+  memberCount?: number;
+  memberLimit?: number;
+  requireApproval?: boolean;
+  joinRule?: JoinRule;
+  convo?: ConvoView;
+}
+
+/** A join link associated with a group */
+export interface JoinLink {
+  code: string;
+  enabledStatus: 'enabled' | 'disabled';
+  requireApproval: boolean;
+  joinRule: JoinRule;
+  createdAt: string;
+}
+
+/** Result of a join request */
+export interface JoinResult {
+  status: 'joined' | 'pending';
+  convo?: ConvoView;
+}
+
+/** Input for creating a join link */
+export interface CreateJoinLinkInput {
+  convoId: string;
+  joinRule: JoinRule;
+  requireApproval?: boolean;
+}

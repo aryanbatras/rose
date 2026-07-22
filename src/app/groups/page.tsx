@@ -96,12 +96,23 @@ export default function GroupsPage() {
       <header className="sticky top-0 z-40 bg-surface-base/80 backdrop-blur-lg border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="text-lg font-bold font-heading text-foreground">Groups</h1>
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="px-4 py-2 rounded-full bg-brand text-black text-sm font-semibold hover:bg-brand-hover transition-colors"
-          >
-            {showCreate ? 'Cancel' : 'New Group'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.push('/groups/join')}
+              className="px-3 py-2 rounded-full border border-border text-foreground text-sm font-medium hover:bg-accent/30 transition-colors"
+            >
+              <span className="hidden sm:inline">Join</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setShowCreate(!showCreate)}
+              className="px-4 py-2 rounded-full bg-brand text-black text-sm font-semibold hover:bg-brand-hover transition-colors"
+            >
+              {showCreate ? 'Cancel' : 'New Group'}
+            </button>
+          </div>
         </div>
       </header>
 

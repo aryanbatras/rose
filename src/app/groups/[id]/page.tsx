@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import type { GroupInfo, MessageView, BasicProfileView } from '@/types/chat';
+import type { GroupInfo, MessageView, BasicProfileView, JoinLink } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { formatRelativeTime } from '@/lib/time';
@@ -22,6 +22,11 @@ export default function GroupDetailPage() {
   const [messageText, setMessageText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // ── Invite link management ─────────────────────────────────────────
+  const [showInvite, setShowInvite] = useState(false);
+  const [joinLink, setJoinLink] = useState<JoinLink | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   // Fetch group data
   useEffect(() => {
@@ -94,6 +99,63 @@ export default function GroupDetailPage() {
     }
   };
 
+  // ── Invite link actions ─────────────────────────────────────────────
+  const handleCreateInviteLink = useCallback(async () => {
+    if (!convoId || inviteLoading) return;
+    setInviteLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${convoId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', joinRule: 'anyone', requireApproval: true }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setJoinLink(data.joinLink);
+        toast.success('Invite link created!');
+      } else {
+        toast.error(data.error || 'Failed to create invite link');
+      }
+    } catch {
+      toast.error('Connection error');
+    }
+    setInviteLoading(false);
+  }, [convoId, inviteLoading]);
+
+  const handleToggleInviteLink = useCallback(async () => {
+    if (!convoId || inviteLoading || !joinLink) return;
+    setInviteLoading(true);
+    const action = joinLink.enabledStatus === 'enabled' ? 'disable' : 'enable';
+    try {
+      const res = await fetch(`/api/groups/${convoId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (action === 'disable') {
+          setJoinLink((prev) => prev ? { ...prev, enabledStatus: 'disabled' } : null);
+          toast.success('Invite link disabled');
+        } else {
+          setJoinLink(data.joinLink || { ...joinLink, enabledStatus: 'enabled' });
+          toast.success('Invite link enabled');
+        }
+      } else {
+        toast.error(data.error || `Failed to ${action} invite link`);
+      }
+    } catch {
+      toast.error('Connection error');
+    }
+    setInviteLoading(false);
+  }, [convoId, inviteLoading, joinLink]);
+
+  const copyInviteCode = useCallback(() => {
+    if (!joinLink?.code) return;
+    navigator.clipboard.writeText(joinLink.code);
+    toast.success('Invite code copied to clipboard!');
+  }, [joinLink]);
+
   if (authLoading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center">
@@ -132,6 +194,21 @@ export default function GroupDetailPage() {
             </p>
           </div>
 
+          {/* Invite button */}
+          {!loading && (
+            <button
+              onClick={() => setShowInvite(!showInvite)}
+              className={`p-2 rounded-lg transition-colors ${
+                showInvite ? 'bg-brand/20 text-brand' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+              aria-label="Manage invite link"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            </button>
+          )}
+
           {/* Members avatars */}
           <div className="flex -space-x-1.5">
             {members.slice(0, 5).map((member) => (
@@ -153,6 +230,67 @@ export default function GroupDetailPage() {
           </div>
         </div>
       </header>
+
+      {/* Invite link panel */}
+      {showInvite && (
+        <div className="border-b border-border bg-surface-elevated/50 px-4 py-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Invite Link</h3>
+
+          {joinLink ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={joinLink.code}
+                  className="flex-1 rounded-lg border border-border bg-surface-base px-3 py-2 text-sm font-mono text-foreground"
+                />
+                <button
+                  onClick={copyInviteCode}
+                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                  aria-label="Copy invite code"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className={joinLink.enabledStatus === 'enabled' ? 'text-green-500' : 'text-red-500'}>
+                    {joinLink.enabledStatus === 'enabled' ? '● Enabled' : '● Disabled'}
+                  </span>
+                  <span>· {joinLink.requireApproval ? 'Approval required' : 'Open join'}</span>
+                </div>
+                <button
+                  onClick={handleToggleInviteLink}
+                  disabled={inviteLoading}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    joinLink.enabledStatus === 'enabled'
+                      ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                      : 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
+                  } disabled:opacity-50`}
+                >
+                  {inviteLoading ? '...' : joinLink.enabledStatus === 'enabled' ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-xs text-muted-foreground mb-3">
+                Create an invite link to let others join this group.
+              </p>
+              <button
+                onClick={handleCreateInviteLink}
+                disabled={inviteLoading}
+                className="px-4 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors"
+              >
+                {inviteLoading ? 'Creating...' : 'Create Invite Link'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages area */}
       <div
