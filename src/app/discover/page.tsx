@@ -36,8 +36,9 @@ export default function DiscoverPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [feedsLoading, setFeedsLoading] = useState(true);
   const [feedsError, setFeedsError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch curated feeds (optionally filtered by category)
+  // Fetch curated feeds
   useEffect(() => {
     if (!isAuthenticated) return;
     async function load() {
@@ -45,7 +46,7 @@ export default function DiscoverPage() {
       setFeedsError(null);
       try {
         const cat = selectedCategory ? `&category=${encodeURIComponent(selectedCategory)}` : '';
-        const res = await fetch(`/api/feed/generators?mode=curated&limit=30${cat}`);
+        const res = await fetch(`/api/feed/generators?mode=curated&limit=50${cat}`);
         if (res.ok) {
           const data = await res.json();
           setCuratedFeeds(data.feeds || []);
@@ -59,6 +60,18 @@ export default function DiscoverPage() {
     }
     load();
   }, [isAuthenticated, selectedCategory]);
+
+  // Filter feeds by search query
+  const filteredFeeds = curatedFeeds.filter((feed) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      feed.label.toLowerCase().includes(q) ||
+      (feed.description || '').toLowerCase().includes(q) ||
+      (feed.creatorHandle || '').toLowerCase().includes(q) ||
+      (feed.category || '').toLowerCase().includes(q)
+    );
+  });
 
   // Auth redirect
   useEffect(() => {
@@ -135,6 +148,40 @@ export default function DiscoverPage() {
           <>
 
 
+            {/* Inline search bar */}
+            <div className="px-4 pt-4">
+              <div className="relative">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search feeds by name, description, or creator..."
+                  className="w-full rounded-2xl border border-border bg-surface-elevated/80 px-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/60 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Curated feeds */}
             <section className="px-4 pt-4">
               <div className="flex items-center justify-between mb-3">
@@ -142,7 +189,7 @@ export default function DiscoverPage() {
                   {selectedCategory || 'All Feeds'}
                 </h2>
                 <span className="text-xs text-muted-foreground">
-                  {curatedFeeds.length} feed{curatedFeeds.length !== 1 ? 's' : ''}
+                  {searchQuery ? `${filteredFeeds.length} of ${curatedFeeds.length}` : `${curatedFeeds.length} feed${curatedFeeds.length !== 1 ? 's' : ''}`}
                 </span>
               </div>
 
@@ -169,13 +216,17 @@ export default function DiscoverPage() {
                     Retry
                   </button>
                 </div>
-              ) : curatedFeeds.length === 0 ? (
+              ) : searchQuery && filteredFeeds.length === 0 ? (
                 <div className="py-12 text-center">
-                  <p className="text-sm text-muted-foreground">No feeds in this category yet</p>
+                  <p className="text-sm text-muted-foreground">No feeds match &ldquo;{searchQuery}&rdquo;</p>
+                </div>
+              ) : !searchQuery && curatedFeeds.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground">No feeds available</p>
                 </div>
               ) : (
                 <FeedList
-                  feeds={curatedFeeds}
+                  feeds={searchQuery ? filteredFeeds : curatedFeeds}
                   isSubscribed={isSubscribed}
                   onSubscribe={handleSubscribe}
                   onUnsubscribe={handleUnsubscribe}

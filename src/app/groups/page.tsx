@@ -130,7 +130,7 @@ export default function GroupsPage() {
             </button>
             <button
               onClick={() => setShowCreate(!showCreate)}
-              className="px-4 py-2 rounded-full bg-brand text-black text-sm font-semibold hover:bg-brand-hover transition-colors"
+              className="px-4 py-2 rounded-full bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors"
             >
               {showCreate ? 'Cancel' : 'New Group'}
             </button>
@@ -169,7 +169,7 @@ export default function GroupsPage() {
               </div>
               <button
                 onClick={handleCreate}
-                className="w-full py-2.5 rounded-xl bg-brand text-black text-sm font-semibold hover:bg-brand-hover transition-colors"
+                className="w-full py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors"
               >
                 Create Group
               </button>
@@ -202,7 +202,7 @@ export default function GroupsPage() {
               </p>
               <button
                 onClick={() => setShowCreate(true)}
-                className="mt-4 px-6 py-2.5 rounded-xl bg-brand text-black text-sm font-semibold hover:bg-brand-hover transition-colors"
+                className="mt-4 px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors"
               >
                 Create Group
               </button>

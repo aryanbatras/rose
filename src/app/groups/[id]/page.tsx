@@ -594,7 +594,7 @@ export default function GroupDetailPage() {
               <button
                 onClick={handleCreateInviteLink}
                 disabled={inviteLoading}
-                className="px-4 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors"
               >
                 {inviteLoading ? 'Creating...' : 'Create Invite Link'}
               </button>
@@ -630,7 +630,7 @@ export default function GroupDetailPage() {
             <button
               onClick={handleAddMembers}
               disabled={memberActionLoading || !addMemberInput.trim()}
-              className="px-3 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors shrink-0"
+              className="px-3 py-2 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors shrink-0"
             >
               {memberActionLoading ? '...' : 'Add'}
             </button>
@@ -825,7 +825,7 @@ export default function GroupDetailPage() {
                   <button
                     onClick={handleSaveName}
                     disabled={settingsLoading || !editName.trim()}
-                    className="px-3 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors"
+                    className="px-3 py-2 rounded-lg bg-brand text-white text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors"
                   >
                     {settingsLoading ? '...' : 'Save'}
                   </button>
