@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAgentForSession } from '@/services/agent';
+import { getAgentForSession, getAgentFromRequest } from '@/services/agent';
 import { deletePost } from '@/services/posts';
 import { cookies } from 'next/headers';
 

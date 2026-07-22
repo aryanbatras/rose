@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAgentForSession } from '@/services/agent';
+import { getAgentForSession, getAgentFromRequest } from '@/services/agent';
 import { getFollows } from '@/services/graph';
 import { cookies } from 'next/headers';
 

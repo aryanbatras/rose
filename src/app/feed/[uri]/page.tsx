@@ -75,17 +75,13 @@ export default function PostThreadPage() {
       </header>
 
       <main className="mx-auto max-w-lg pb-20">
-        {/* Main post */}
-        {'post' in thread ? (
-          <FeedCard item={thread.post} />
-        ) : (
-          <FeedCard item={thread as any} />
-        )}
+        {/* Main post — normalized thread structure always has .post */}
+        <FeedCard item={thread.post} />
 
-        {/* Replies — recursive nesting */}
-        {'replies' in thread && thread.replies?.length > 0 && (
+        {/* Replies — recursive nesting with depth indicators */}
+        {thread.replies?.length > 0 && (
           <div className="border-t border-border">
-            <ReplyThread replies={thread.replies} />
+            <ReplyThread replies={thread.replies} depth={0} />
           </div>
         )}
 

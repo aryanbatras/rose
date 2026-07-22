@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAgentForSession } from '@/services/agent';
+import { getAgentFromRequest } from '@/services/agent';
 import { getPostThread } from '@/services/posts';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('voiceflow_session');
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const session = JSON.parse(sessionCookie.value);
-    const agent = await getAgentForSession(session);
+    const agent = await getAgentFromRequest(request);
     if (!agent) {
-      return NextResponse.json({ error: "Session expired" }, { status: 401 });
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);

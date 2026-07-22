@@ -3,6 +3,22 @@
 import { useCallback, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 
+/**
+ * Auth-aware fetch that automatically attaches the session
+ * from Zustand localStorage as an X-AT-Session header.
+ */
+export function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const state = useAuthStore.getState();
+  if (state.session) {
+    // Base64 encode session data so server can resume from it
+    const encoded = Buffer.from(JSON.stringify(state.session)).toString('base64');
+    const headers = new Headers(options.headers);
+    headers.set('x-at-session', encoded);
+    return fetch(url, { ...options, headers });
+  }
+  return fetch(url, options);
+}
+
 export function useAuth() {
   const store = useAuthStore();
 

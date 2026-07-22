@@ -1,6 +1,7 @@
 'use server';
 
 import { BskyAgent } from '@atproto/api';
+import { NextRequest } from 'next/server';
 import type { SessionData } from '@/store/auth-store';
 
 const ATPROTO_SERVICE = process.env.ATPROTO_SERVICE_URL || 'https://bsky.social';
@@ -96,6 +97,54 @@ export async function getAgentForSession(sessionData?: SessionData): Promise<Bsk
   } catch {
     return null;
   }
+}
+
+/**
+ * Get agent from a NextRequest by checking (in order):
+ * 1. X-AT-Session header (base64-encoded JSON session data from client localStorage)
+ * 2. voiceflow_session cookie (httpOnly, set on login)
+ * Returns null if no valid auth is found.
+ */
+export async function getAgentFromRequest(request: NextRequest): Promise<BskyAgent | null> {
+  // Try 1: X-AT-Session header (sent by client from Zustand localStorage)
+  const sessionHeader = request.headers.get('x-at-session');
+  if (sessionHeader) {
+    try {
+      const decoded = JSON.parse(Buffer.from(sessionHeader, 'base64').toString('utf-8'));
+      const session = {
+        did: decoded.did,
+        handle: decoded.handle,
+        accessJwt: decoded.accessJwt,
+        refreshJwt: decoded.refreshJwt || decoded.accessJwt,
+        active: decoded.active ?? true,
+      } as SessionData;
+      const agent = await createAgentFromSession(session);
+      if (agent) return agent;
+    } catch {
+      // Invalid header, fall through to cookie
+    }
+  }
+
+  // Try 2: Authorization header (Bearer token)
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const accessJwt = authHeader.slice(7);
+    // Just the accessJwt isn't enough for resumeSession, so fall through
+    // Full session requires X-AT-Session header with all fields
+  }
+
+  // Try 3: Cookie (backward compatibility)
+  const sessionCookie = request.cookies.get('voiceflow_session') || request.cookies.get('session');
+  if (sessionCookie) {
+    try {
+      const parsed: SessionData = JSON.parse(sessionCookie.value);
+      return await createAgentFromSession(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -35,7 +35,35 @@ export async function getPostThread(
   depth = 6
 ): Promise<any> {
   const response = await agent.getPostThread({ uri, depth });
-  return response.data.thread;
+  const thread = response.data.thread;
+  return normalizeThreadNode(thread);
+}
+
+/**
+ * Recursively normalize a thread node so every reply follows the
+ * same shape as a FeedItem with a nested `replies` array.
+ */
+function normalizeThreadNode(node: any): any {
+  if (!node) return null;
+
+  // The AT Protocol returns the thread as:
+  // { post: FeedItem, replies?: [threadNode, ...], parent?: threadNode }
+  // We flatten this so every node has a `post` and `replies` array.
+
+  const post = node.post || node;
+  const normalized: any = {
+    post: normalizeFeedItem(post),
+    replies: [],
+    depth: node.depth || 0,
+  };
+
+  if (node.replies && Array.isArray(node.replies)) {
+    normalized.replies = node.replies
+      .map((reply: any) => normalizeThreadNode(reply))
+      .filter(Boolean);
+  }
+
+  return normalized;
 }
 
 export async function createPost(
