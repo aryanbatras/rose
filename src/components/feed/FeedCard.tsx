@@ -7,6 +7,7 @@ import { BlueskyVideoPlayer } from '@/components/feed/BlueskyVideoPlayer';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { formatRelativeTime } from '@/lib/time';
 import { motion } from 'framer-motion';
+import { useSpells } from '@/hooks/useSpells';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -137,6 +138,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
     }
   };
 
+  const spells = useSpells();
   const authorDisplay = item.author.displayName || item.author.handle;
 
   return (
@@ -147,12 +149,14 @@ export function FeedCard({ item, reason }: FeedCardProps) {
       onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
       className="feed-card"
     >
-      <button
-        onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }}
-        className="shrink-0"
-      >
-        <Avatar src={item.author.avatar} alt={authorDisplay} size="lg" />
-      </button>
+      {!spells.hideAvatar && (
+        <button
+          onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }}
+          className="shrink-0"
+        >
+          <Avatar src={item.author.avatar} alt={authorDisplay} size="lg" />
+        </button>
+      )}
 
       <div className="min-w-0 flex-1">
         {/* Repost reason */}
@@ -167,12 +171,16 @@ export function FeedCard({ item, reason }: FeedCardProps) {
 
         {/* Author row */}
         <div className="flex items-center gap-2.5">
-          <span className="text-[17px] font-semibold text-foreground truncate">
-            {authorDisplay}
-          </span>
-          <span className="shrink-0 text-[15px] text-muted-foreground">
-            @{item.author.handle}
-          </span>
+          {!spells.hideDisplayName && (
+            <span className="text-[17px] font-semibold text-foreground truncate">
+              {authorDisplay}
+            </span>
+          )}
+          {!spells.hideHandle && (
+            <span className="shrink-0 text-[15px] text-muted-foreground">
+              @{item.author.handle}
+            </span>
+          )}
           <span className="shrink-0 text-[15px] text-muted-foreground">·</span>
           <span className="shrink-0 text-[15px] text-muted-foreground">
             {formatRelativeTime(item.indexedAt)}
@@ -272,72 +280,81 @@ export function FeedCard({ item, reason }: FeedCardProps) {
         })()}
 
         {/* Interaction row - larger */}
-        <div className="flex items-center gap-1 mt-3 -ml-3">
-          <button
-            onClick={(e) => { e.stopPropagation(); router.push(`/feed/${encodeURIComponent(item.uri)}`); }}
-            className="interact-btn"
-            aria-label="Reply"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span className="tabular-nums">{item.replyCount || ''}</span>
-          </button>
-
-          <button
-            onClick={handleLike}
-            disabled={isLiking}
-            className={`interact-btn ${liked ? 'liked' : ''}`}
-            aria-label={liked ? 'Unlike' : 'Like'}
-          >
-            <motion.div
-              key={liked ? 'liked' : 'unliked'}
-              initial={liked ? { scale: 1.5 } : false}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-              className="flex items-center gap-1"
+        {!spells.hideAllInteractions && (
+          <div className="flex items-center gap-1 mt-3 -ml-3">
+            <button
+              onClick={(e) => { e.stopPropagation(); router.push(`/feed/${encodeURIComponent(item.uri)}`); }}
+              className="interact-btn"
+              aria-label="Reply"
+              disabled={spells.disableReply}
             >
-              <svg
-                fill={liked ? 'currentColor' : 'none'}
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={liked ? 0 : 2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-            </motion.div>
-            <motion.span
-              key={likeCount}
-              initial={{ scale: 1.3 }}
-              animate={{ scale: 1 }}
-              className="tabular-nums"
+              {!spells.hideEngagementMetrics && (
+                <span className="tabular-nums">{item.replyCount || ''}</span>
+              )}
+            </button>
+
+            <button
+              onClick={handleLike}
+              disabled={isLiking || spells.disableLike}
+              className={`interact-btn ${liked ? 'liked' : ''}`}
+              aria-label={liked ? 'Unlike' : 'Like'}
             >
-              {likeCount || ''}
-            </motion.span>
-          </button>
+              <motion.div
+                key={liked ? 'liked' : 'unliked'}
+                initial={liked ? { scale: 1.5 } : false}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                className="flex items-center gap-1"
+              >
+                <svg
+                  fill={liked ? 'currentColor' : 'none'}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={liked ? 0 : 2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </motion.div>
+              {!spells.hideEngagementMetrics && (
+                <motion.span
+                  key={likeCount}
+                  initial={{ scale: 1.3 }}
+                  animate={{ scale: 1 }}
+                  className="tabular-nums"
+                >
+                  {likeCount || ''}
+                </motion.span>
+              )}
+            </button>
 
-          <button
-            onClick={handleRepost}
-            disabled={isReposting}
-            className={`interact-btn ${reposted ? 'text-blue hover:text-blue-hover' : ''}`}
-            aria-label={reposted ? 'Undo repost' : 'Repost'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span className="tabular-nums">{repostCount || ''}</span>
-          </button>
+            <button
+              onClick={handleRepost}
+              disabled={isReposting || spells.disableRepost}
+              className={`interact-btn ${reposted ? 'text-blue hover:text-blue-hover' : ''}`}
+              aria-label={reposted ? 'Undo repost' : 'Repost'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {!spells.hideEngagementMetrics && (
+                <span className="tabular-nums">{repostCount || ''}</span>
+              )}
+            </button>
 
-          <button
-            onClick={handleShare}
-            className="interact-btn"
-            aria-label="Share"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-          </button>
-        </div>
+            <button
+              onClick={handleShare}
+              className="interact-btn"
+              aria-label="Share"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </motion.article>
   );
