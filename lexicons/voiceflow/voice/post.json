@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "voiceflow.voice.post",
+  "type": "record",
+  "description": "A voice post record for VoiceFlow - a social network that listens.",
+  "record": {
+    "type": "object",
+    "required": ["videoBlob", "duration", "createdAt"],
+    "properties": {
+      "videoBlob": { "type": "blob" },
+      "duration": { "type": "integer", "minimum": 0 },
+      "transcript": { "type": "string", "maxLength": 5000 },
+      "text": { "type": "string", "maxLength": 300 },
+      "tags": {
+        "type": "array",
+        "items": { "type": "string", "maxLength": 64 }
+      },
+      "mood": { "type": "string", "maxLength": 32 },
+      "waveformData": {
+        "type": "array",
+        "items": { "type": "integer" }
+      },
+      "createdAt": { "type": "string", "format": "datetime" },
+      "facets": {
+        "type": "array",
+        "items": { "type": "ref", "ref": "app.bsky.richtext.facet" }
+      }
+    }
+  }
+}

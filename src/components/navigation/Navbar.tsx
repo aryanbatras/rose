@@ -85,6 +85,7 @@ export function Navbar() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 strokeWidth={isCenter ? 2 : 1.5}
+                aria-hidden="true"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
               </svg>

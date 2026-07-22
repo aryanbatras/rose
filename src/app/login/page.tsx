@@ -27,6 +27,19 @@ export default function LoginPage() {
     }
   }
 
+  async function startDemoMode() {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/demo', { method: 'POST' });
+      if (res.ok) {
+        // Refresh the page so the session check picks up the demo cookie
+        window.location.href = '/feed';
+        return;
+      }
+    } catch {}
+    setIsSubmitting(false);
+  }
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base p-4">
       <div className="w-full max-w-sm">
@@ -38,6 +51,12 @@ export default function LoginPage() {
             Sign in with your Bluesky account
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -76,12 +95,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-
           <button
             type="submit"
             disabled={isSubmitting || isLoading}
@@ -91,8 +104,25 @@ export default function LoginPage() {
           </button>
         </form>
 
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-surface-base px-2 text-muted-foreground">or</span>
+          </div>
+        </div>
+
+        <button
+          onClick={startDemoMode}
+          disabled={isSubmitting || isLoading}
+          className="w-full rounded-md border border-border bg-surface-elevated px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        >
+          Try Demo Mode
+        </button>
+
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          By continuing, you agree to the Terms of Service and Privacy Policy.
+          Demo mode uses mock data. No Bluesky account needed.
         </p>
       </div>
     </div>

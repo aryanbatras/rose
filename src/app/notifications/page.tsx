@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications, useMarkRead } from '@/hooks/useNotifications';
 import { NotificationSkeleton } from '@/components/ui/skeleton';
+import { formatRelativeTime } from '@/lib/time';
 import { Avatar } from '@/components/ui/avatar';
 import { Navbar } from '@/components/navigation/Navbar';
 
 function NotificationCard({ item }: { item: any }) {
   const router = useRouter();
   const authorDisplay = item.author.displayName || item.author.handle;
-  const timeAgo = getTimeAgo(item.indexedAt);
+  const timeAgo = formatRelativeTime(item.indexedAt);
 
   const reasonLabels: Record<string, string> = {
     like: 'liked your post',
@@ -59,17 +60,7 @@ function NotificationCard({ item }: { item: any }) {
   );
 }
 
-function getTimeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-}
+
 
 export default function NotificationsPage() {
   const router = useRouter();

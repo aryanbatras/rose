@@ -4,26 +4,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/avatar';
 import { VoicePlayer } from '@/components/voice/VoicePlayer';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+import { formatRelativeTime } from '@/lib/time';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
   item: FeedItem;
   isVoicePost?: boolean;
-}
-
-function formatRelativeTime(dateStr: string) {
-  const now = Date.now();
-  const date = new Date(dateStr).getTime();
-  const diff = now - date;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(dateStr).toLocaleDateString();
 }
 
 export function FeedCard({ item, isVoicePost = false }: FeedCardProps) {
@@ -32,6 +21,22 @@ export function FeedCard({ item, isVoicePost = false }: FeedCardProps) {
   const [liked, setLiked] = useState(!!item.viewer?.like);
   const [likeCount, setLikeCount] = useState(item.likeCount);
   const [isLiking, setIsLiking] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(() => {
+    if (cardRef.current) {
+      gsap.from(cardRef.current, {
+        y: 20,
+        opacity: 0,
+        duration: 0.4,
+        ease: 'power2.out',
+        scrollTrigger: {
+          trigger: cardRef.current,
+          start: 'top bottom-=40',
+        },
+      });
+    }
+  }, { scope: cardRef });
 
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -68,6 +73,7 @@ export function FeedCard({ item, isVoicePost = false }: FeedCardProps) {
 
   return (
     <article
+      ref={cardRef}
       onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
       className="group cursor-pointer border-b border-border px-4 py-3 transition-colors hover:bg-accent/30 active:bg-accent/50"
     >
