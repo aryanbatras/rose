@@ -66,10 +66,13 @@ export default function BookmarksPage() {
       ) : (
         <div className="divide-y divide-border/50">
           {bookmarks.map((bookmark) => (
-            <button
+            <div
               key={bookmark.uri}
+              role="button"
+              tabIndex={0}
               onClick={() => router.push(`/feed/${encodeURIComponent(bookmark.uri)}`)}
-              className="flex w-full items-start gap-3 px-4 py-3 hover:bg-accent/30 transition-colors text-left group"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/feed/${encodeURIComponent(bookmark.uri)}`); }}
+              className="flex w-full items-start gap-3 px-4 py-3 hover:bg-accent/30 transition-colors text-left group cursor-pointer"
             >
               <div className="h-10 w-10 shrink-0 rounded-full bg-accent overflow-hidden">
                 {bookmark.author.avatar && (
@@ -108,7 +111,7 @@ export default function BookmarksPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </button>
+            </div>
           ))}
         </div>
       )}

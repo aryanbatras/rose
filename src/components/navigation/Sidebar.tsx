@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useUnreadCount } from '@/hooks/useNotifications';
-import { useBookmarkStore } from '@/stores/bookmark-store';
+
 import { useSpells } from '@/hooks/useSpells';
 import { Avatar } from '@/components/ui/avatar';
 import {
@@ -56,17 +56,7 @@ function NavIcon({ icon, isActive }: { icon: string; isActive: boolean }) {
 }
 
 function BookmarksIcon() {
-  const { bookmarks } = useBookmarkStore();
-  const count = bookmarks.length;
-  return (
-    <span className="relative">
-      <Bookmark className="h-6 w-6" />
-      {count > 0 && (            <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-white">
-          {count > 99 ? '99+' : count}
-        </span>
-      )}
-    </span>
-  );
+  return <Bookmark className="h-6 w-6" />;
 }
 
 export function Sidebar() {

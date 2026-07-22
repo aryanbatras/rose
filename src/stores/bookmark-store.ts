@@ -42,11 +42,11 @@ export const useBookmarkStore = create<BookmarkState>()((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         const items = (data.bookmarks || []).map((b: any) => ({
-          uri: b.subject?.uri || b.uri,
-          cid: b.subject?.cid || b.cid,
-          bookmarkUri: b.uri,
-          author: b.author || { handle: 'unknown' },
-          text: b.text || '',
+          uri: b.subject?.uri || b.item?.uri,
+          cid: b.subject?.cid || b.item?.cid,
+          bookmarkUri: b.subject?.uri || b.item?.uri,
+          author: b.item?.author || b.author || { handle: 'unknown' },
+          text: b.item?.record?.text || b.item?.value?.text || '',
           savedAt: b.createdAt || new Date().toISOString(),
         }));
         set({ bookmarks: items, loaded: true, loading: false });
