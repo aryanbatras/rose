@@ -8,6 +8,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { formatRelativeTime } from '@/lib/time';
 import { motion } from 'framer-motion';
 import { useSpells } from '@/hooks/useSpells';
+import {
+  Repeat,
+  MoreHorizontal,
+  Trash2,
+  MessageCircle,
+  Heart,
+  Share2,
+} from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -66,7 +74,6 @@ export function FeedCard({ item, reason }: FeedCardProps) {
     e.stopPropagation();
     if (!session || isLiking) return;
     setIsLiking(true);
-    // Optimistic update for instant feedback
     const wasLiked = liked;
     const prevCount = likeCount;
     setLiked(!wasLiked);
@@ -162,9 +169,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
         {/* Repost reason */}
         {reason?.$type === 'app.bsky.feed.defs#reasonRepost' && (
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <Repeat className="h-4 w-4" />
             {reason.by.displayName || reason.by.handle} reposted
           </p>
         )}
@@ -193,9 +198,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
                 className="p-1.5 rounded-full hover:bg-brand/10 transition-colors"
                 aria-label="Post options"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
+                <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
               </button>
 
               {showMenu && (
@@ -205,9 +208,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
                     disabled={isDeleting}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <Trash2 className="h-4.5 w-4.5" />
                     {isDeleting ? 'Deleting...' : 'Delete post'}
                   </button>
                 </div>
@@ -216,18 +217,17 @@ export function FeedCard({ item, reason }: FeedCardProps) {
           )}
         </div>
 
-        {/* Post text - larger */}
+        {/* Post text */}
         <p className="mt-2 text-[17px] text-foreground whitespace-pre-wrap break-words leading-relaxed">
           {item.record.text}
         </p>
 
-        {/* Embedded media - larger images */}
+        {/* Embedded media */}
         {(() => {
           const em = item.record.embed;
           if (!em) return null;
           const t = em.$type || '';
 
-          // Images
           if ((t.includes('images') || t.includes('image')) && em.images?.length) {
             const isMulti = em.images.length > 1;
             return (
@@ -245,12 +245,10 @@ export function FeedCard({ item, reason }: FeedCardProps) {
             );
           }
 
-          // Video
           if (t.includes('video')) {
             return <BlueskyVideoPlayer item={item} variant="inline" />;
           }
 
-          // External link
           if (t.includes('external')) {
             const ext = em.external;
             return ext ? (
@@ -267,7 +265,6 @@ export function FeedCard({ item, reason }: FeedCardProps) {
             ) : null;
           }
 
-          // Record/quote
           if (t.includes('record')) {
             return (
               <div className="mt-3 p-5 rounded-2xl border border-border text-[15px] text-muted-foreground bg-surface-elevated/50">
@@ -279,7 +276,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
           return null;
         })()}
 
-        {/* Interaction row - larger */}
+        {/* Interaction row */}
         {!spells.hideAllInteractions && (
           <div className="flex items-center gap-1 mt-3 -ml-3">
             <button
@@ -288,9 +285,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
               aria-label="Reply"
               disabled={spells.disableReply}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+              <MessageCircle className="h-5 w-5" />
               {!spells.hideEngagementMetrics && (
                 <span className="tabular-nums">{item.replyCount || ''}</span>
               )}
@@ -309,14 +304,11 @@ export function FeedCard({ item, reason }: FeedCardProps) {
                 transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                 className="flex items-center gap-1"
               >
-                <svg
+                <Heart
+                  className="h-5 w-5"
                   fill={liked ? 'currentColor' : 'none'}
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
                   strokeWidth={liked ? 0 : 2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
+                />
               </motion.div>
               {!spells.hideEngagementMetrics && (
                 <motion.span
@@ -336,9 +328,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
               className={`interact-btn ${reposted ? 'text-blue hover:text-blue-hover' : ''}`}
               aria-label={reposted ? 'Undo repost' : 'Repost'}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <Repeat className="h-5 w-5" />
               {!spells.hideEngagementMetrics && (
                 <span className="tabular-nums">{repostCount || ''}</span>
               )}
@@ -349,9 +339,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
               className="interact-btn"
               aria-label="Share"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
+              <Share2 className="h-5 w-5" />
             </button>
           </div>
         )}

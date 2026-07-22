@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useFilterStore } from '@/stores/filter-store';
+import { Filter, X } from 'lucide-react';
 
 export function FilterPanel() {
   const {
@@ -30,9 +31,7 @@ export function FilterPanel() {
         className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-accent/50 text-muted-foreground hover:text-foreground"
         aria-label="Filters"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-        </svg>
+        <Filter className="h-4 w-4" />
         Filters
         {count > 0 && (
           <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
@@ -48,9 +47,7 @@ export function FilterPanel() {
             <div className="sticky top-0 z-10 bg-surface-elevated border-b border-border px-4 py-3 flex items-center justify-between">
               <h2 className="text-lg font-bold">Feed Filters</h2>
               <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-full hover:bg-accent transition-colors" aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -108,9 +105,7 @@ export function FilterPanel() {
                       <span key={word} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
                         {word}
                         <button onClick={() => removeMutedWord(word)} className="hover:text-destructive/80" aria-label={`Remove ${word}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
+                          <X className="h-3 w-3" />
                         </button>
                       </span>
                     ))}

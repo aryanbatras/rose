@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFeedSourceStore, PRESET_FEEDS } from '@/stores/feed-source-store';
 import { CURATED_FEEDS, FEED_CATEGORIES } from '@/services/feeds';
+import { ChevronDown, Home, Compass, Check, LayoutGrid, X, Plus } from 'lucide-react';
 import type { FeedSource } from '@/types/atproto';
 
 export function FeedSourcePicker() {
@@ -16,7 +17,6 @@ export function FeedSourcePicker() {
 
   const savedFeedUris = useMemo(() => new Set(savedFeeds.map((f) => f.uri)), [savedFeeds]);
 
-  // Curated feeds, optionally filtered by category
   const visibleCurated = useMemo(() => {
     if (!selectedCategory) return CURATED_FEEDS;
     return CURATED_FEEDS.filter((f) => f.category === selectedCategory);
@@ -43,9 +43,7 @@ export function FeedSourcePicker() {
         aria-label="Select feed source"
       >
         {activeSource.label}
-        <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
@@ -71,7 +69,6 @@ export function FeedSourcePicker() {
             <div className="max-h-80 overflow-y-auto">
               {tab === 'saved' && (
                 <div className="p-1.5">
-                  {/* Preset sources */}
                   {PRESET_FEEDS.map((source) => {
                     const isActive = activeSource.type === source.type && activeSource.uri === source.uri;
                     return (
@@ -82,24 +79,17 @@ export function FeedSourcePicker() {
                           isActive ? 'bg-brand/10 text-brand font-semibold' : 'text-foreground hover:bg-accent'
                         }`}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          {source.type === 'following' ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                          )}
-                        </svg>
-                        <span className="truncate">{source.label}</span>
-                        {isActive && (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
+                        {source.type === 'following' ? (
+                          <Home className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <Compass className="h-4 w-4 shrink-0" />
                         )}
+                        <span className="truncate">{source.label}</span>
+                        {isActive && <Check className="h-4 w-4 ml-auto shrink-0 stroke-[2.5]" />}
                       </button>
                     );
                   })}
 
-                  {/* Saved feeds divider */}
                   {savedFeeds.length > 0 && (
                     <>
                       <div className="my-1.5 border-t border-border" />
@@ -113,15 +103,9 @@ export function FeedSourcePicker() {
                               isActive ? 'bg-brand/10 text-brand font-semibold' : 'text-foreground hover:bg-accent'
                             }`}
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                            </svg>
+                            <LayoutGrid className="h-4 w-4 shrink-0" />
                             <span className="truncate flex-1 text-left">{feed.label}</span>
-                            {isActive && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
+                            {isActive && <Check className="h-4 w-4 shrink-0 stroke-[2.5]" />}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -130,9 +114,7 @@ export function FeedSourcePicker() {
                               className="p-0.5 rounded text-muted-foreground hover:text-destructive transition-colors"
                               aria-label={`Unsubscribe from ${feed.label}`}
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+                              <X className="h-3.5 w-3.5" />
                             </button>
                           </button>
                         );
@@ -151,7 +133,6 @@ export function FeedSourcePicker() {
 
               {tab === 'curated' && (
                 <div>
-                  {/* Category chips */}
                   <div className="flex flex-wrap gap-1.5 px-3 pt-3 pb-2">
                     <button
                       onClick={() => setSelectedCategory(null)}
@@ -182,7 +163,6 @@ export function FeedSourcePicker() {
                     )}
                   </div>
 
-                  {/* Feed list */}
                   <div className="p-1.5 pt-1">
                     {visibleCurated.map((feed) => {
                       const isSaved = savedFeedUris.has(feed.uri);
@@ -219,7 +199,6 @@ export function FeedSourcePicker() {
               )}
             </div>
 
-            {/* Footer */}
             <div className="border-t border-border p-1.5">
               <button
                 onClick={() => {
@@ -228,9 +207,7 @@ export function FeedSourcePicker() {
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2.5 rounded-lg text-xs text-blue hover:bg-accent transition-colors"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="h-3.5 w-3.5" />
                 Browse all feeds in Discover
               </button>
             </div>

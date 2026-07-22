@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
+import { ArrowLeft, Camera } from 'lucide-react';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -103,9 +104,7 @@ export default function SettingsPage() {
       <header className="sticky top-0 z-40 border-b border-border bg-surface-base/80 backdrop-blur-lg">
         <div className="mx-auto flex max-w-lg items-center px-4 py-3">
           <button onClick={() => router.back()} className="text-foreground hover:text-muted-foreground transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
+            <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="ml-3 text-lg font-bold font-heading text-foreground">Settings</h1>
         </div>
@@ -139,10 +138,7 @@ export default function SettingsPage() {
                 className="ring-4 ring-surface-base"
               />
               <label className="absolute -bottom-1 -right-1 cursor-pointer rounded-full bg-brand p-1.5 text-black shadow-md hover:bg-brand-hover transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <Camera className="h-3.5 w-3.5" />
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </label>
             </div>

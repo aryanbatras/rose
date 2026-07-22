@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { Avatar } from '@/components/ui/avatar';
 import { useRef, useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 interface FollowingProfile {
   did: string;
@@ -33,7 +34,6 @@ export function StoriesRow() {
     staleTime: 60_000,
   });
 
-  // API returns { items: [...], cursor: ... }
   const profiles: FollowingProfile[] = followData?.items ?? [];
 
   const checkScroll = () => {
@@ -68,9 +68,7 @@ export function StoriesRow() {
           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
           aria-label="Scroll left"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className="h-4 w-4" />
         </button>
       )}
       {canScrollRight && (
@@ -79,9 +77,7 @@ export function StoriesRow() {
           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-background/90 backdrop-blur-sm border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
           aria-label="Scroll right"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
+          <ChevronRight className="h-4 w-4" />
         </button>
       )}
 
@@ -90,7 +86,6 @@ export function StoriesRow() {
         className="flex items-center gap-4 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-smooth"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {/* Your own story ring */}
         <button
           onClick={() => session?.handle && router.push(`/profile/${session.handle}`)}
           className="flex flex-col items-center gap-1.5 snap-start shrink-0 group"
@@ -106,9 +101,7 @@ export function StoriesRow() {
               </div>
             </div>
             <div className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-blue flex items-center justify-center shadow-md">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
+              <Plus className="h-3 w-3 text-white" strokeWidth={3} />
             </div>
           </div>
           <span className="text-[11px] text-muted-foreground font-medium truncate w-16 text-center">You</span>
