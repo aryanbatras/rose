@@ -85,6 +85,26 @@ export async function getProfile(
   return response.data;
 }
 
+export async function updateProfile(
+  agent: BskyAgent,
+  updates: {
+    displayName?: string;
+    description?: string;
+    avatarBlob?: any;
+    bannerBlob?: any;
+  }
+): Promise<void> {
+  await agent.upsertProfile((existing: any) => {
+    const updated = { ...existing };
+    if (updates.displayName !== undefined) updated.displayName = updates.displayName;
+    if (updates.description !== undefined) updated.description = updates.description;
+    if (updates.avatarBlob) updated.avatar = updates.avatarBlob;
+    if (updates.bannerBlob) updated.banner = updates.bannerBlob;
+    return updated;
+  });
+  revalidatePath('/');
+}
+
 export async function getSuggestions(
   agent: BskyAgent,
   limit = 20
