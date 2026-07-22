@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useGroupPolling } from '@/hooks/useGroupPolling';
 import type { GroupInfo } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
@@ -21,20 +22,21 @@ export default function GroupsPage() {
     if (!authLoading && !isAuthenticated) router.replace('/login');
   }, [isAuthenticated, authLoading, router]);
 
+  // Initial one-time fetch (manages loading state properly)
   useEffect(() => {
     if (!isAuthenticated || !session) return;
-    async function load() {
-      try {
-        const res = await fetch('/api/groups');
-        if (res.ok) {
-          const data = await res.json();
-          setGroups(data.groups || []);
-        }
-      } catch { /* ignore */ }
-      setLoading(false);
-    }
-    load();
+    fetch('/api/groups')
+      .then((res) => (res.ok ? res.json() : { groups: [] }))
+      .then((data) => setGroups(data.groups || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [isAuthenticated, session]);
+
+  // Background polling every 30s (never touches loading state)
+  const { refreshNow } = useGroupPolling({
+    isAuthenticated: isAuthenticated && !!session,
+    onUpdate: useCallback((freshGroups: GroupInfo[]) => setGroups(freshGroups), []),
+  });
 
   const handleCreate = async () => {
     if (!groupName.trim() || !memberHandles.trim()) {
@@ -65,12 +67,8 @@ export default function GroupsPage() {
         setShowCreate(false);
         setGroupName('');
         setMemberHandles('');
-        // Refresh groups
-        const groupsRes = await fetch('/api/groups');
-        if (groupsRes.ok) {
-          const groupsData = await groupsRes.json();
-          setGroups(groupsData.groups || []);
-        }
+        // Trigger a fresh poll immediately
+        refreshNow();
         // Navigate to the new group
         if (data.convoId) router.push(`/groups/${data.convoId}`);
       } else {
