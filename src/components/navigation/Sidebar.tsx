@@ -15,12 +15,13 @@ import {
   Sparkles,
   Bookmark,
   Settings,
+  Play,
 } from 'lucide-react';
 
 interface NavEntry {
   label: string;
   path: string;
-  icon: 'home' | 'search' | 'bell' | 'feeds' | 'groups' | 'spells' | 'bookmarks' | 'profile' | 'settings';
+  icon: 'home' | 'search' | 'reels' | 'bell' | 'feeds' | 'groups' | 'spells' | 'bookmarks' | 'profile' | 'settings';
   badge?: boolean;
   hideEffect?: string;
 }
@@ -28,8 +29,9 @@ interface NavEntry {
 const NAV_ENTRIES: NavEntry[] = [
   { label: 'Home', path: '/feed', icon: 'home' },
   { label: 'Search', path: '/search', icon: 'search', hideEffect: 'hide_search_nav' },
+  { label: 'Reels', path: '/reels', icon: 'reels' },
   { label: 'Notifications', path: '/notifications', icon: 'bell', badge: true },
-  { label: 'Feeds', path: '/discover', icon: 'feeds', hideEffect: 'hide_feeds_nav' },
+  { label: 'Discover', path: '/discover', icon: 'feeds', hideEffect: 'hide_feeds_nav' },
   { label: 'Groups', path: '/groups', icon: 'groups' },
   { label: 'Spells', path: '/spells', icon: 'spells' },
   { label: 'Bookmarks', path: '/bookmarks', icon: 'bookmarks' },
@@ -44,6 +46,7 @@ function NavIcon({ icon, isActive }: { icon: string; isActive: boolean }) {
     case 'search': return <Search className={className} />;
     case 'bell': return <Bell className={className} />;
     case 'feeds': return <LayoutGrid className={className} />;
+    case 'reels': return <Play className={className} />;
     case 'groups': return <Users className={className} />;
     case 'spells': return <Sparkles className={className} />;
     case 'bookmarks': return <BookmarksIcon />;
@@ -82,14 +85,16 @@ export function Sidebar() {
 
   return (
     <aside className="app-sidebar hidden sm:flex flex-col gap-1">
-      <div className="px-3 py-3 mb-2">
-        <h1 className="text-xl font-bold font-heading" style={{ color: 'var(--brand)' }}>
+      <div className="px-3 pt-4 pb-5">
+        <h1 className="text-2xl font-bold font-heading tracking-tight" style={{ color: 'var(--brand)' }}>
           Rose
         </h1>
       </div>
 
       <nav className="flex flex-col gap-0.5 flex-1">
         {NAV_ENTRIES.map((entry) => {
+          // Use icon as unique key (Home and Reels both use path '/feed')
+          const itemKey = entry.icon;
           if (entry.hideEffect === 'hide_search_nav' && spells.hideSearchNav) return null;
           if (entry.hideEffect === 'hide_feeds_nav' && spells.hideFeedsNav) return null;
           if (entry.hideEffect === 'hide_profile_nav' && spells.hideProfileNav) return null;
@@ -103,7 +108,7 @@ export function Sidebar() {
           if (entry.path === '/profile') {
             return (
               <button
-                key={entry.path}
+                key={itemKey}
                 onClick={() => router.push(profilePath)}
                 className={`nav-item ${isActive ? 'active' : ''}`}
                 aria-label="Profile"
@@ -121,7 +126,7 @@ export function Sidebar() {
 
           return (
             <button
-              key={entry.path}
+              key={itemKey}
               onClick={() => router.push(entry.path)}
               className={`nav-item ${isActive ? 'active' : ''}`}
             >

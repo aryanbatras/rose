@@ -2,300 +2,333 @@
 
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useGSAPScrollAnimation } from '@/hooks/useGSDPScrollAnimation';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
-import { useViewModeStore } from '@/stores/view-mode-store';
-import { useFilterStore } from '@/stores/filter-store';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
-import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { FeedCard } from '@/components/feed/FeedCard';
-import { BlueskyVideoPlayer } from '@/components/feed/BlueskyVideoPlayer';
-import { ViewModeToggle } from '@/components/feed/ViewModeToggle';
-import { FilterPanel } from '@/components/feed/FilterPanel';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
-import { StoriesRow } from '@/components/feed/StoriesRow';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
-import { FeedCardSkeleton } from '@/components/ui/skeleton';
-import { Heart, MessageCircle, Play, Image, LayoutGrid, List } from 'lucide-react';
+import { Play } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
-function applyClientFilters(posts: FeedItem[], content: any, mute: any): FeedItem[] {
-  let filtered = [...posts];
-  if (content.hideReposts) filtered = filtered.filter((p) => !p.reason?.$type?.includes('reasonRepost'));
-  if (content.hideReplies) filtered = filtered.filter((p) => !p.reply);
-  if (content.mediaOnly) filtered = filtered.filter((p) => !!p.record.embed);
-  if (content.videoOnly) filtered = filtered.filter((p) => (p.record.embed?.$type || '').includes('video'));
-  if (mute.mutedWords.length > 0) {
-    const lowerWords = mute.mutedWords.map((w: string) => w.toLowerCase());
-    filtered = filtered.filter((p) => !lowerWords.some((w: string) => p.record.text.toLowerCase().includes(w)));
-  }
-  return filtered;
+// ─── Relative Time ───────────────────────────────────────────────
+function relativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 4) return `${weeks}w`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/** Grid view: ONLY shows posts with actual image or video embeds (no links/external cards) */
-function GridView({ items }: { items: FeedItem[] }) {
+// ─── Single Post Card (icon-free, minimal) ───────────────────────
+function PostCard({
+  item,
+  onLikeToggle,
+  liking,
+}: {
+  item: FeedItem;
+  onLikeToggle: (item: FeedItem) => void;
+  liking: Set<string>;
+}) {
   const router = useRouter();
-  // Strictly filter to only images and videos, NOT external links
-  const mediaItems = items.filter((p) => {
+  const em = item.record.embed;
+  const images = em?.images || [];
+  const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
+  const caption = item.record.text || '';
+  const displayName = item.author.displayName || item.author.handle;
+  const handle = item.author.handle;
+  const isVideo = (em?.$type || '').includes('video');
+  const isLiked = !!item.viewer?.like;
+  const isPending = liking.has(item.uri);
+  const timeAgo = relativeTime(item.record.createdAt || item.indexedAt);
+  const lastClickRef = useRef<number>(0);
+
+  const openPost = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      router.push(`/feed/${encodeURIComponent(item.uri)}`);
+    },
+    [item.uri, router]
+  );
+
+  const handleImageClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const now = Date.now();
+      const elapsed = now - lastClickRef.current;
+      lastClickRef.current = now;
+
+      if (elapsed < 400 && elapsed > 0) {
+        // Double-click → like (don't navigate)
+        if (!item.viewer?.like) {
+          onLikeToggle(item);
+        }
+      } else {
+        // Single click → open post
+        router.push(`/feed/${encodeURIComponent(item.uri)}`);
+      }
+    },
+    [item, onLikeToggle, router]
+  );
+
+  return (
+    <article className="feed-post feed-enter">
+      {/* Author row: avatar + username — compact, tucked in */}
+      <div className="flex items-center gap-3 px-1 pb-2.5">
+        <button
+          onClick={(e) => { e.stopPropagation(); router.push(`/profile/${handle}`); }}
+          className="h-8 w-8 rounded-full overflow-hidden shrink-0"
+          style={{ boxShadow: '0 0 0 2px white, 0 0 0 4px var(--brand-muted)' }}
+        >
+          {item.author.avatar ? (
+            <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-brand/10 to-brand/5 flex items-center justify-center text-sm font-semibold text-brand/60">
+              {displayName[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+        </button>
+        <button
+          onClick={() => router.push(`/profile/${handle}`)}
+          className="font-semibold text-[14px] text-foreground hover:text-brand transition-colors truncate"
+        >
+          {displayName}
+        </button>
+      </div>
+
+      {/* Image / Video — generous radius, subtle shadow */}
+      <div
+        onClick={handleImageClick}
+        className="feed-image relative w-full cursor-pointer"
+      >
+        {thumbUrl ? (
+          <>
+            <img
+              src={thumbUrl}
+              alt=""
+              className="w-full max-h-[90vh] object-contain bg-surface-elevated select-none"
+              loading="lazy"
+              draggable={false}
+            />
+            {/* Time overlay — soft pill top-right */}
+            <span className="absolute top-3 right-3 text-[11px] font-medium text-white/80 bg-black/25 px-2.5 py-1 rounded-full backdrop-blur-sm">
+              {timeAgo}
+            </span>
+            {isVideo && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="h-14 w-14 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                  <Play className="h-6 w-6 text-white fill-white ml-0.5" strokeWidth={0} />
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="aspect-square flex items-center justify-center bg-gradient-to-br from-brand/5 to-brand/2 rounded-2xl">
+            <Play className="h-12 w-12 text-brand/20" strokeWidth={1.5} />
+          </div>
+        )}
+      </div>
+
+      {/* Like count — just text, no icons. Coral when liked. */}
+      {item.likeCount >= 0 && (
+        <div className="feed-like">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onLikeToggle(item);
+            }}
+            disabled={isPending}
+            className={`transition-all duration-150 disabled:opacity-50 ${
+              isLiked ? 'text-destructive' : 'text-foreground hover:text-destructive'
+            }`}
+          >
+            {item.likeCount.toLocaleString()} {item.likeCount === 1 ? 'like' : 'likes'}
+          </button>
+        </div>
+      )}
+
+      {/* Caption — spacious, readable, clickable */}
+      {caption && (
+        <div className="feed-caption">
+          <button onClick={openPost} className="text-left w-full">
+            <span>
+              <span className="font-semibold mr-1.5">{displayName}</span>
+              {caption}
+            </span>
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+// ─── Feed Page ───────────────────────────────────────────────────
+export default function FeedPage() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { activeSource } = useFeedSourceStore();
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = useFeed(activeSource);
+  const isTrending = activeSource?.type === 'trending';
+  const [liking, setLiking] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.replace('/login');
+  }, [isAuthenticated, authLoading, router]);
+
+  // Infinite scroll — observe the last sentinel element
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (isFetchingNextPage || !hasNextPage) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleLikeToggle = useCallback(
+    async (item: FeedItem) => {
+      if (liking.has(item.uri)) return;
+      setLiking((prev) => new Set(prev).add(item.uri));
+
+      try {
+        if (item.viewer?.like) {
+          await fetch('/api/interact/unlike', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ likeUri: item.viewer.like }),
+          });
+        } else {
+          await fetch('/api/interact/like', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uri: item.uri, cid: item.cid }),
+          });
+        }
+        refetch();
+      } catch (e) {
+        console.error('Like toggle failed:', e);
+      } finally {
+        setLiking((prev) => {
+          const next = new Set(prev);
+          next.delete(item.uri);
+          return next;
+        });
+      }
+    },
+    [liking, refetch]
+  );
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-pulse rounded-full bg-brand/30" />
+      </div>
+    );
+  }
+
+  // Deduplicate posts by URI — API sometimes returns duplicates
+  const allPosts = data?.pages.flatMap((page: any) => page.items || []) ?? [];
+  const seen = new Set<string>();
+  const uniquePosts: FeedItem[] = [];
+  for (const p of allPosts) {
+    if (!seen.has(p.uri)) {
+      seen.add(p.uri);
+      uniquePosts.push(p);
+    }
+  }
+
+  // Filter to only media posts (images/video)
+  const mediaPosts = uniquePosts.filter((p) => {
     const em = p.record.embed;
     if (!em) return false;
     const t = em.$type || '';
     return t.includes('images') || t.includes('video');
   });
 
-  if (mediaItems.length === 0) {
-    return (
-      <div className="py-16 text-center">
-        <div className="h-14 w-14 mx-auto rounded-2xl bg-brand/10 flex items-center justify-center mb-3">
-          <LayoutGrid className="h-6 w-6 text-brand/50" strokeWidth={1.5} />
-        </div>
-        <p className="text-base font-medium text-foreground">No media posts to show</p>
-        <p className="text-sm text-muted-foreground mt-1">Switch to classic view to see all posts</p>
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.03 } } }}
-      className="grid grid-cols-2 sm:grid-cols-3 gap-[2px] px-0"
-    >
-      {mediaItems.map((item) => {
-        const em = item.record.embed;
-        const images = em?.images || [];
-        const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
-        const authorName = item.author.displayName || item.author.handle;
-        const isVideo = (em?.$type || '').includes('video');
-        const isMultiImage = images.length > 1;
-
-        return (
-          <motion.button
-            key={`${item.uri}-${item.cid}`}
-            variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}
-            onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
-            className="relative aspect-square overflow-hidden bg-surface-elevated group cursor-pointer"
-          >
-            {thumbUrl ? (
-              <>
-                <img src={thumbUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" loading="lazy" />
-                <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className="h-6 w-6 rounded-full overflow-hidden ring-1 ring-white/30 shrink-0">
-                        {item.author.avatar && <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />}
-                      </div>
-                      <span className="text-[13px] font-semibold text-white truncate drop-shadow-sm">{authorName}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] text-white/80">
-                      <span className="flex items-center gap-1">
-                        <Heart className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
-                        {item.likeCount || 0}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        {item.replyCount || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-brand/5">
-                <Play className="h-10 w-10 text-brand/40" strokeWidth={1.5} />
-              </div>
-            )}
-
-            {isVideo && (
-              <div className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                <Play className="h-4 w-4 text-white fill-white" strokeWidth={0} />
-              </div>
-            )}
-
-            {isMultiImage && (
-              <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                <Image className="h-3.5 w-3.5 text-white" />
-              </div>
-            )}
-          </motion.button>
-        );
-      })}
-    </motion.div>
-  );
-}
-
-export default function FeedPage() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, session } = useAuth();
-  const { activeSource } = useFeedSourceStore();
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useFeed(activeSource);
-  const { mode } = useViewModeStore();
-  const { content, mute } = useFilterStore();
-  const isTrending = activeSource?.type === 'trending';
-  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
-
-  useKeyboardShortcuts({
-    onSearch: useCallback(() => router.push('/search'), [router]),
-    onCompose: useCallback(() => router.push('/compose'), [router]),
-    onEscape: useCallback(() => setShowShortcutHelp(false), []),
-  });
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.replace('/login');
-  }, [isAuthenticated, authLoading, router]);
-
-  useGSAPScrollAnimation('.feed-card', { stagger: 0.06 });
-
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (isFetchingNextPage) return;
-      if (observerRef.current) observerRef.current.disconnect();
-      observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && hasNextPage) fetchNextPage();
-      });
-      if (node) observerRef.current.observe(node);
-    },
-    [isFetchingNextPage, hasNextPage, fetchNextPage]
-  );
-
-  if (authLoading) {
-    return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-pulse rounded-full bg-brand/30" /></div>;
-  }
-
-  const allPosts = data?.pages.flatMap((page: any) => page.items || []) ?? [];
-  const uniquePosts = Array.from(new Map(allPosts.map((p: any) => [p.uri, p])).values());
-  const filteredPosts = applyClientFilters(uniquePosts, content, mute);
-
   return (
     <>
-      <header className="sticky top-0 z-40 bg-surface-base/95 backdrop-blur-xl">
+      {/* ─── Header ─────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-surface-base/95 backdrop-blur-xl border-b border-border">
         <div className="flex items-center justify-between px-4 h-[56px]">
-          <div className="flex items-center gap-2">
-            <FeedSourcePicker />
-            {mode === 'grid' && (
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20">
-                <LayoutGrid className="h-3.5 w-3.5 text-brand" />
-                <span className="text-[11px] font-semibold text-brand">Grid</span>
-              </div>
-            )}
-            {mode === 'classic' && (
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue/10 border border-blue/20">
-                <List className="h-3.5 w-3.5 text-blue" />
-                <span className="text-[11px] font-semibold text-blue">Classic</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <ViewModeToggle />
-            <button
-              onClick={() => setShowShortcutHelp(!showShortcutHelp)}
-              className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-all duration-200 hidden sm:block"
-              aria-label="Keyboard shortcuts"
-              title="Keyboard shortcuts (?)"
-            >
-              <span className="text-xs font-bold font-mono">?</span>
-            </button>
-          </div>
+          <FeedSourcePicker />
         </div>
       </header>
 
-      {/* Render TrendingFeedView when trending source is active */}
       {isTrending ? (
         <TrendingFeedView />
       ) : (
         <>
-          {mode === 'grid' && (
-            <div className="border-b border-border/40">
-              <StoriesRow />
-            </div>
-          )}
-        </>
-      )}
-
-      {showShortcutHelp && (
-        <>
-          <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowShortcutHelp(false)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowShortcutHelp(false)}>
-            <div className="bg-surface-elevated border border-border rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-bold mb-4">Keyboard Shortcuts</h2>
-              <div className="space-y-2">
-                {[
-                  { key: 'j', desc: 'Next post' },
-                  { key: 'k', desc: 'Previous post' },
-                  { key: 'l', desc: 'Like post' },
-                  { key: '/', desc: 'Focus search' },
-                  { key: 'n', desc: 'New post' },
-                  { key: '1', desc: 'Grid view' },
-                  { key: '2', desc: 'Classic view' },
-                  { key: 'Esc', desc: 'Close modals' },
-                  { key: '?', desc: 'Show help' },
-                ].map(({ key, desc }) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <span className="text-sm text-foreground">{desc}</span>
-                    <kbd className="px-2 py-0.5 rounded bg-accent text-xs text-muted-foreground font-mono">{key}</kbd>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {!isTrending && (
-        <>
           {isLoading ? (
-            <div className="space-y-0">
-              {Array.from({ length: 8 }).map((_, i) => <FeedCardSkeleton key={i} />)}
+            /* ─── Skeletons ───────────────────── */
+            <div className="mx-auto max-w-3xl pb-20">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="border-b border-border animate-pulse">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="h-8 w-8 rounded-full bg-surface-elevated" />
+                    <div className="h-3 w-28 rounded bg-surface-elevated" />
+                  </div>
+                  <div className="aspect-[4/5] bg-surface-elevated" />
+                  <div className="h-4 w-20 bg-surface-elevated rounded mx-4 mt-3 mb-4" />
+                </div>
+              ))}
             </div>
           ) : error ? (
-            <div className="py-20 text-center">
-              <p className="text-muted-foreground">Failed to load feed</p>
-              <button onClick={() => window.location.reload()} className="mt-2 text-sm text-brand hover:underline">Try again</button>
+            <div className="py-24 text-center">
+              <p className="text-muted-foreground">Could not load this feed</p>
+              <button onClick={() => window.location.reload()} className="mt-2 text-sm text-brand hover:underline">
+                Try again
+              </button>
             </div>
-          ) : filteredPosts.length === 0 ? (
-            <div className="py-20 text-center">
-              <p className="text-lg font-medium text-foreground">
-                {mode === 'grid' && uniquePosts.length > 0
-                  ? 'No media posts in your feed'
-                  : uniquePosts.length > 0
-                    ? 'No posts match your filters'
-                    : 'Welcome to Rose!'}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {mode === 'grid' && uniquePosts.length > 0
-                  ? 'Switch to classic view to see text posts and links'
-                  : uniquePosts.length > 0
-                    ? 'Try adjusting your filters'
-                    : 'Follow some users to see their posts here'}
-              </p>
+          ) : mediaPosts.length === 0 ? (
+            <div className="py-24 text-center">
+              <p className="text-lg font-medium text-foreground">No posts to show</p>
+              <p className="text-sm text-muted-foreground mt-1">Follow some users or pick a feed</p>
             </div>
           ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={mode}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-              >
-                {mode === 'classic' && (
-                  <div>
-                    {filteredPosts.map((item: any, index: number) => (
-                      <FeedCard key={`${item.uri}-${item.cid || index}`} item={item} reason={item.reason} />
-                    ))}
-                  </div>
-                )}
-                {mode === 'grid' && <GridView items={filteredPosts} />}
-              </motion.div>
-              <div ref={loadMoreRef} className="py-8">
-                {isFetchingNextPage && Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)}
+            <>
+              <div className="mx-auto max-w-3xl pb-20">
+                {mediaPosts.map((item) => (
+                  <PostCard
+                    key={`${item.uri}-${item.cid}`}
+                    item={item}
+                    onLikeToggle={handleLikeToggle}
+                    liking={liking}
+                  />
+                ))}
               </div>
-            </AnimatePresence>
+
+              {/* Sentinel for infinite scroll */}
+              <div ref={sentinelRef} className="h-4" />
+
+              {isFetchingNextPage && (
+                <div className="mx-auto max-w-3xl pb-20">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="border-b border-border animate-pulse">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="h-8 w-8 rounded-full bg-surface-elevated" />
+                        <div className="h-3 w-28 rounded bg-surface-elevated" />
+                      </div>
+                      <div className="aspect-[4/5] bg-surface-elevated" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

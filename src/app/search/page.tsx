@@ -7,6 +7,8 @@ import { useDebouncedSearch, useSearchPosts, useSearchActors } from '@/hooks/use
 import { FeedCard } from '@/components/feed/FeedCard';
 import { Avatar } from '@/components/ui/avatar';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
+import { Play, Image, LayoutGrid } from 'lucide-react';
+
 
 export default function SearchPage() {
   const router = useRouter();
@@ -26,12 +28,43 @@ export default function SearchPage() {
   const posts = postsData?.items || [];
   const actors = actorsData || [];
   const isLoading = postsLoading || actorsLoading;
+  const hasQuery = debouncedQuery.trim().length >= 2;
+
+  // When no search query, show Discover grid (2-column photos/videos)
+  const [discoverPosts, setDiscoverPosts] = useState<any[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isAuthenticated || hasQuery) {
+      setDiscoverLoading(false);
+      return;
+    }
+    setDiscoverLoading(true);
+    fetch('/api/feed?sourceType=discover&limit=50')
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((data) => {
+        const items = data.items || [];
+        // Only show posts with images or video embeds
+        setDiscoverPosts(
+          items.filter((p: any) => {
+            const em = p.record?.embed;
+            if (!em) return false;
+            const t = em.$type || '';
+            return t.includes('images') || t.includes('video');
+          })
+        );
+      })
+      .catch(() => {})
+      .finally(() => setDiscoverLoading(false));
+  }, [isAuthenticated, hasQuery]);
 
   return (
     <div className="min-h-[100dvh] bg-surface-base">
       <header className="sticky top-0 z-40 border-b border-border bg-surface-base/80 backdrop-blur-lg">
         <div className="mx-auto max-w-lg px-4 py-3">
-          <h1 className="text-lg font-bold font-heading text-foreground mb-3">Search</h1>
+          <h1 className="text-lg font-bold font-heading text-foreground mb-3">
+            Search
+          </h1>
           <div className="relative">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -55,8 +88,8 @@ export default function SearchPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        {debouncedQuery.trim().length >= 2 && (
+        {/* Tabs (only when searching) */}
+        {hasQuery && (
           <div className="flex border-b border-border">
             {(['top', 'people', 'posts'] as const).map((t) => (
               <button
@@ -75,18 +108,82 @@ export default function SearchPage() {
         )}
       </header>
 
-      <main className="mx-auto max-w-lg pb-20">
-        {!debouncedQuery.trim() ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-muted-foreground/30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <p className="text-lg font-medium text-foreground">Find people and posts</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Search for users or posts across the network
-            </p>
-          </div>
+      <main className="mx-auto pb-20">
+        {!hasQuery ? (
+          /* ─── DISCOVER GRID (no query) ─────────────── */
+          <>
+            {discoverLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-[2px] px-0 pt-2">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="aspect-square bg-surface-elevated animate-pulse" />
+                ))}
+              </div>
+            ) : discoverPosts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+                <LayoutGrid className="h-12 w-12 text-muted-foreground/30 mb-4" strokeWidth={1} />
+                <p className="text-lg font-medium text-foreground">Discover media</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Photos and videos from across the network
+                </p>
+              </div>
+            ) : (
+              <div className="px-2 pt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {discoverPosts.map((item: any) => {
+                    const em = item.record?.embed;
+                    const images = em?.images || [];
+                    const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
+                    const isVideo = (em?.$type || '').includes('video');
+                    const isMultiImage = images.length > 1;
+                    const authorName = item.author?.displayName || item.author?.handle || '';
+
+                    return (
+                      <button
+                        key={item.uri}
+                        onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
+                        className="relative aspect-square overflow-hidden rounded-2xl bg-surface-elevated group cursor-pointer shadow-sm"
+                      >
+                        {thumbUrl ? (
+                          <>
+                            <img src={thumbUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" loading="lazy" />
+                            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                              <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="h-5 w-5 rounded-full overflow-hidden ring-1 ring-white/30 shrink-0">
+                                    {item.author?.avatar && <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />}
+                                  </div>
+                                  <span className="text-xs font-semibold text-white truncate drop-shadow-sm">{authorName}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-white/70">
+                                  <span>❤ {item.likeCount || 0}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-brand/5">
+                            <Play className="h-8 w-8 text-brand/40" strokeWidth={1.5} />
+                          </div>
+                        )}
+                        {isVideo && (
+                          <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                            <Play className="h-3 w-3 text-white fill-white ml-0.5" strokeWidth={0} />
+                          </div>
+                        )}
+                        {isMultiImage && (
+                          <div className="absolute top-2 left-2 h-5 w-5 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                            <Image className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         ) : isLoading ? (
+          /* ─── SEARCH RESULTS LOADING ───────────────── */
           tab === 'posts' ? (
             Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)
           ) : (
@@ -103,6 +200,7 @@ export default function SearchPage() {
             </div>
           )
         ) : (
+          /* ─── SEARCH RESULTS ───────────────────────── */
           <>
             {(tab === 'top' || tab === 'people') && actors.length > 0 && (
               <div className="px-4 pt-4">
@@ -114,15 +212,9 @@ export default function SearchPage() {
                       onClick={() => router.push(`/profile/${actor.handle}`)}
                       className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-accent/30"
                     >
-                      <Avatar
-                        src={actor.avatar}
-                        alt={actor.displayName || actor.handle}
-                        size="md"
-                      />
+                      <Avatar src={actor.avatar} alt={actor.displayName || actor.handle} size="md" />
                       <div className="text-left">
-                        <p className="text-sm font-semibold text-foreground">
-                          {actor.displayName || actor.handle}
-                        </p>
+                        <p className="text-sm font-semibold text-foreground">{actor.displayName || actor.handle}</p>
                         <p className="text-xs text-muted-foreground">@{actor.handle}</p>
                       </div>
                     </button>
@@ -139,11 +231,7 @@ export default function SearchPage() {
                   </div>
                 )}
                 {posts.map((item: any, index: number) => (
-                  <FeedCard
-                    key={`${item.uri}-${index}`}
-                    item={item}
-                   
-                  />
+                  <FeedCard key={`${item.uri}-${index}`} item={item} />
                 ))}
               </div>
             )}
@@ -157,7 +245,6 @@ export default function SearchPage() {
           </>
         )}
       </main>
-
     </div>
   );
 }

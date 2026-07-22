@@ -25,50 +25,53 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
   --font-heading: var(--font-heading);
 }
 
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.985 0.001 95);
-  --foreground: oklch(0.12 0.01 260);
-  --muted: oklch(0.94 0.005 260);
-  --muted-foreground: oklch(0.50 0.01 260);
-  --accent: oklch(0.88 0.04 260);
-  --accent-foreground: oklch(0.20 0.02 260);
-  --destructive: oklch(0.55 0.20 30);
+  --radius: 1.125rem;
+
+  /* ── Light theme: warm off-white, soft pink, borderless & spacious ── */
+  --background: oklch(0.985 0.002 80);          /* warm off-white ~#f8f8f8 */
+  --foreground: oklch(0.15 0.005 0);            /* soft near-black ~#262626 */
+  --muted: oklch(0.94 0.004 80);                /* light warm gray */
+  --muted-foreground: oklch(0.54 0.008 0);      /* medium gray ~#8e8e8e */
+  --accent: oklch(0.92 0.005 80);               /* subtle hover — barely visible */
+  --accent-foreground: oklch(0.20 0.005 0);
+  --destructive: oklch(0.65 0.20 18);           /* soft coral red for hearts */
   --destructive-foreground: oklch(0.97 0.005 260);
-  --border: oklch(0.88 0.005 260);
-  --surface-base: oklch(0.99 0.001 95);
-  --surface-elevated: oklch(1 0 0);
-  --brand: oklch(0.55 0.22 20);
-  --brand-hover: oklch(0.50 0.23 20);
-  --brand-subtle: oklch(0.55 0.22 20 / 0.15);
-  --brand-muted: oklch(0.55 0.22 20 / 0.06);
-  --blue: oklch(0.62 0.18 240);
-  --blue-hover: oklch(0.58 0.19 240);
-  --blue-subtle: oklch(0.62 0.18 240 / 0.12);
+  --border: oklch(0.90 0.004 80);               /* very subtle ~#e3e3e3 */
+  --surface-base: var(--background);             /* seamless with bg */
+  --surface-elevated: oklch(1 0 0);             /* pure white for cards */
+  --brand: oklch(0.64 0.20 355);                /* soft pink ~#f06 */
+  --brand-hover: oklch(0.59 0.22 355);          /* slightly deeper pink */
+  --brand-subtle: oklch(0.64 0.20 355 / 0.12);  /* transparent pink */
+  --brand-muted: oklch(0.64 0.20 355 / 0.04);   /* barely-there pink */
+  --blue: oklch(0.58 0.15 250);                 /* link blue */
+  --blue-hover: oklch(0.53 0.17 250);
+  --blue-subtle: oklch(0.58 0.15 250 / 0.10);
 }
 
 .dark {
-  --background: oklch(0.10 0.008 260);
-  --foreground: oklch(0.95 0.005 260);
-  --muted: oklch(0.20 0.01 260);
-  --muted-foreground: oklch(0.65 0.01 260);
-  --accent: oklch(0.25 0.04 260);
-  --accent-foreground: oklch(0.95 0.005 260);
-  --destructive: oklch(0.55 0.20 30);
+  --background: oklch(0.08 0.004 80);
+  --foreground: oklch(0.93 0.003 80);
+  --muted: oklch(0.18 0.004 80);
+  --muted-foreground: oklch(0.55 0.006 80);
+  --accent: oklch(0.20 0.005 80);
+  --accent-foreground: oklch(0.93 0.003 80);
+  --destructive: oklch(0.65 0.20 18);
   --destructive-foreground: oklch(0.97 0.005 260);
-  --border: oklch(0.22 0.008 260);
-  --surface-base: oklch(0.09 0.006 260);
-  --surface-elevated: oklch(0.14 0.008 260);
-  --brand: oklch(0.52 0.20 20);
-  --brand-hover: oklch(0.47 0.21 20);
-  --brand-subtle: oklch(0.52 0.20 20 / 0.20);
-  --brand-muted: oklch(0.52 0.20 20 / 0.08);
-  --blue: oklch(0.62 0.18 240);
-  --blue-hover: oklch(0.58 0.19 240);
-  --blue-subtle: oklch(0.62 0.18 240 / 0.15);
+  --border: oklch(0.18 0.004 80);
+  --surface-base: oklch(0.07 0.003 80);
+  --surface-elevated: oklch(0.12 0.004 80);
+  --brand: oklch(0.64 0.20 355);
+  --brand-hover: oklch(0.59 0.22 355);
+  --brand-subtle: oklch(0.64 0.20 355 / 0.18);
+  --brand-muted: oklch(0.64 0.20 355 / 0.06);
+  --blue: oklch(0.58 0.15 250);
+  --blue-hover: oklch(0.53 0.17 250);
+  --blue-subtle: oklch(0.58 0.15 250 / 0.12);
 }
 
 * {
@@ -82,51 +85,47 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
-/* Larger base text */
-p, li, .text-base {
-  font-size: 1.0625rem;
-  line-height: 1.65;
-}
-
-/* Bluesky-style three-column layout */
+/* ── App Layout ──────────────────────────────────────── */
 .app-layout {
   display: flex;
-  max-width: 1280px;
+  max-width: 1320px;
   margin: 0 auto;
   min-height: 100dvh;
 }
 
 .app-sidebar {
-  width: 240px;
+  width: 220px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   height: 100dvh;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: 12px 8px 12px 16px;
+  border-right: none;
 }
 
 .app-main {
   flex: 1;
   min-width: 0;
-  max-width: 680px;
+  max-width: 660px;
+  margin: 0 auto;
 }
 
 .app-trends {
-  width: 320px;
+  width: 300px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   height: 100dvh;
   overflow-y: auto;
-  padding: 8px 16px;
+  padding: 12px 16px;
 }
 
 @media (max-width: 1024px) {
@@ -138,26 +137,31 @@ p, li, .text-base {
   .app-main { border: none; max-width: 100%; }
 }
 
-/* Nav item styling - larger */
+/* ── Sidebar Nav Items: spacious, pill-shaped, modern ── */
 .nav-item {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 18px;
-  border-radius: 9999px;
-  font-size: 17px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--foreground);
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s ease, transform 0.15s ease;
   cursor: pointer;
+  width: 100%;
 }
 
 .nav-item:hover {
   background: var(--accent);
 }
 
+.nav-item:active {
+  transform: scale(0.97);
+}
+
 .nav-item.active {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .nav-item.active svg {
@@ -165,64 +169,118 @@ p, li, .text-base {
 }
 
 .nav-item svg {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
+  transition: transform 0.15s ease;
 }
 
-/* Sidebar compose button - larger */
+.nav-item:hover svg {
+  transform: scale(1.05);
+}
+
+/* ── Compose button: pink pill, subtle lift ── */
 .nav-compose {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 14px 28px;
-  border-radius: 9999px;
+  padding: 12px 24px;
+  border-radius: 14px;
   background: var(--brand);
-  color: #000;
-  font-size: 17px;
+  color: #fff;
+  font-size: 15px;
   font-weight: 600;
-  transition: background 0.15s, transform 0.15s;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;
   border: none;
+  box-shadow: 0 2px 8px var(--brand-subtle);
+  letter-spacing: 0.01em;
 }
 
 .nav-compose:hover {
   background: var(--brand-hover);
-  transform: scale(1.02);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--brand-subtle);
 }
 
 .nav-compose:active {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 1px 4px var(--brand-subtle);
 }
 
-/* Feed card styling - completely borderless, clean, spacious */
-.feed-card {
-  display: flex;
-  gap: 16px;
-  padding: 20px 24px;
-  transition: background 0.15s, transform 0.15s;
+/* ── Feed posts: fully borderless, spacious, content-first ── */
+.feed-post {
+  padding: 20px 0;
+  transition: opacity 0.25s ease;
+}
+
+.feed-post + .feed-post {
+  /* whitespace between posts — no borders at all */
+  margin-top: 4px;
+}
+
+/* ── Feed images: generous radius, soft shadow ── */
+.feed-image {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.feed-image:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Image caption: spacious, readable ── */
+.feed-caption {
+  padding: 14px 4px 2px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+
+/* ── Like count button: minimal text, no icon ── */
+.feed-like {
+  padding: 14px 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: color 0.15s ease;
   cursor: pointer;
-  border: none;
-  outline: none;
-  position: relative;
 }
 
-.feed-card:hover {
-  background: var(--accent);
+.feed-like:hover {
+  color: var(--brand);
 }
 
-/* Subtle spacer between cards */
-.feed-card + .feed-card {
-  padding-top: 16px;
+.feed-like.liked {
+  color: var(--destructive);
 }
 
-/* Gridsky-style image grid tile overlay */
+/* ── Avatar ring (Instagram-style subtle gradient) ── */
+.avatar-ring {
+  box-shadow: 0 0 0 2px var(--surface-elevated), 0 0 0 4px var(--brand-muted);
+}
+
+/* ── Profile banner ── */
+.profile-banner {
+  height: 200px;
+  background: linear-gradient(135deg, var(--brand-muted), var(--blue-subtle));
+}
+
+.profile-avatar-wrap {
+  margin-top: -48px;
+  margin-left: 16px;
+  margin-bottom: 12px;
+}
+
+/* ── Grid tile overlay for Explore view ── */
 .grid-tile-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 40%, transparent 70%);
+  background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 40%, transparent 70%);
   opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.25s ease;
   pointer-events: none;
 }
 
@@ -230,7 +288,7 @@ p, li, .text-base {
   opacity: 1;
 }
 
-/* Stories ring pulse animation */
+/* ── Stories ring ── */
 @keyframes story-ring-pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
@@ -240,79 +298,29 @@ p, li, .text-base {
   animation: story-ring-pulse 2s ease-in-out infinite;
 }
 
-/* Hide scrollbar for stories row */
+/* ── Hide scrollbar ── */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 
-/* Profile header */
-.profile-banner {
-  height: 200px;
-  background: linear-gradient(135deg, var(--brand-muted), var(--blue-subtle));
-  border-radius: 0;
-}
-
-.profile-avatar-wrap {
-  margin-top: -48px;
-  margin-left: 16px;
-  margin-bottom: 12px;
-}
-
-/* Interaction buttons - larger touch targets */
-.interact-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 9999px;
-  font-size: 14px;
-  color: var(--muted-foreground);
-  transition: color 0.15s, background 0.15s;
-}
-
-.interact-btn:hover {
-  background: var(--brand-muted);
-  color: var(--brand);
-}
-
-.interact-btn.liked {
-  color: var(--destructive);
-}
-
-.interact-btn.liked:hover {
-  background: oklch(0.55 0.20 30 / 0.12);
-}
-
-.interact-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Instagram-style smooth zoom on hover */
-.img-zoom {
-  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.img-zoom:hover {
-  transform: scale(1.05);
-}
-
-/* Trends card */
+/* ── Trends card ── */
 .trend-card {
   padding: 12px 16px;
   border-radius: var(--radius-lg);
   background: var(--surface-elevated);
-  transition: background 0.15s;
+  transition: background 0.12s ease;
   cursor: pointer;
+  border: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .trend-card:hover {
   background: var(--accent);
 }
 
-/* Scrollbar styling */
+/* ── Scrollbar (barely visible) ── */
 ::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 
 ::-webkit-scrollbar-track {
@@ -321,7 +329,23 @@ p, li, .text-base {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 2px;
+  border-radius: 8px;
+}
+
+/* ── Subtle entrance animation for feed items ── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feed-enter {
+  animation: fade-up 0.4s ease both;
 }
 
 @media (prefers-reduced-motion: reduce) {

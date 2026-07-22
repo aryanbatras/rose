@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSuggestions } from '@/hooks/useProfile';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
-import { FEED_CATEGORIES } from '@/services/feeds';
+
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 
@@ -35,25 +35,7 @@ export default function DiscoverPage() {
   const [curatedFeeds, setCuratedFeeds] = useState<FeedInfo[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [feedsLoading, setFeedsLoading] = useState(true);
-  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [feedsError, setFeedsError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<FeedInfo[] | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [customFeedUri, setCustomFeedUri] = useState('');
-  const [customFeedLookup, setCustomFeedLookup] = useState<FeedInfo | null>(null);
-  const [lookingUp, setLookingUp] = useState(false);
-
-  // Fetch categories metadata
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    fetch('/api/feed/generators?mode=categories')
-      .then((r) => (r.ok ? r.json() : { counts: {} }))
-      .then((data: { counts?: Record<string, number> }) => {
-        if (data.counts) setCategoryCounts(data.counts);
-      })
-      .catch(() => {});
-  }, [isAuthenticated]);
 
   // Fetch curated feeds (optionally filtered by category)
   useEffect(() => {
@@ -77,58 +59,6 @@ export default function DiscoverPage() {
     }
     load();
   }, [isAuthenticated, selectedCategory]);
-
-  // Search feeds
-  const handleSearch = useCallback(async () => {
-    const q = searchQuery.trim();
-    if (!q) {
-      setSearchResults(null);
-      return;
-    }
-    setSearching(true);
-    setSearchResults(null);
-    try {
-      const res = await fetch(`/api/feed/generators?mode=popular&limit=30&query=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data.feeds || []);
-        if (data.feeds?.length === 0) toast.info('No feeds found for that search');
-      }
-    } catch {
-      toast.error('Search failed');
-    }
-    setSearching(false);
-  }, [searchQuery]);
-
-  // Custom feed lookup
-  const handleLookupFeed = useCallback(async () => {
-    const uri = customFeedUri.trim();
-    if (!uri) return;
-    if (!uri.startsWith('at://')) {
-      toast.error('Invalid feed URI. Must start with at://');
-      return;
-    }
-    setLookingUp(true);
-    setCustomFeedLookup(null);
-    try {
-      const res = await fetch(`/api/feed/generators?uris=${encodeURIComponent(uri)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.feeds?.length > 0) {
-          setCustomFeedLookup(data.feeds[0]);
-          toast.success(`Found feed: ${data.feeds[0].label}`);
-        } else {
-          const label = uri.split('/').pop() || 'Custom Feed';
-          setCustomFeedLookup({ uri, label, description: 'Custom feed' });
-        }
-      } else {
-        toast.error('Feed not found. Check the URI and try again.');
-      }
-    } catch {
-      toast.error('Failed to look up feed');
-    }
-    setLookingUp(false);
-  }, [customFeedUri]);
 
   // Auth redirect
   useEffect(() => {
@@ -203,136 +133,7 @@ export default function DiscoverPage() {
         {/* ─── BROWSE FEEDS TAB ──────────────────────── */}
         {activeTab === 'browse' && (
           <>
-            {/* Category chip scroll */}
-            <div className="sticky top-[113px] z-30 bg-surface-base/90 backdrop-blur-md border-b border-border">
-              <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none">
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className={`shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                    !selectedCategory
-                      ? 'bg-brand text-black'
-                      : 'bg-surface-elevated text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                  }`}
-                >
-                  All Feeds
-                </button>
-                {FEED_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
-                    className={`shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                      selectedCategory === cat
-                        ? 'bg-brand text-black'
-                        : 'bg-surface-elevated text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                    }`}
-                  >
-                    {cat}
-                    {categoryCounts[cat] > 0 && (
-                      <span className="ml-1.5 opacity-60">{categoryCounts[cat]}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
 
-              {/* Search bar */}
-              <div className="px-4 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        if (!e.target.value.trim()) setSearchResults(null);
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      placeholder="Search 50,000+ community feeds..."
-                      className="w-full rounded-xl bg-surface-elevated border border-border px-4 py-2.5 pl-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand transition-colors"
-                    />
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <button
-                    onClick={handleSearch}
-                    disabled={searching || !searchQuery.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-brand text-black text-sm font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors shrink-0"
-                  >
-                    {searching ? '...' : 'Search'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Custom feed URI input */}
-            <section className="px-4 pt-4">
-              <details className="group">
-                <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Add feed by URI
-                </summary>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={customFeedUri}
-                    onChange={(e) => setCustomFeedUri(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLookupFeed()}
-                    placeholder="at://did:plc:xxx/app.bsky.feed.generator/name"
-                    className="flex-1 rounded-xl border border-border bg-surface-elevated px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand transition-colors"
-                  />
-                  <button
-                    onClick={handleLookupFeed}
-                    disabled={lookingUp || !customFeedUri.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-brand text-black text-sm font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors shrink-0"
-                  >
-                    {lookingUp ? '...' : 'Lookup'}
-                  </button>
-                </div>
-                {customFeedLookup && (
-                  <div className="mt-2 p-3 rounded-xl border border-border bg-surface-elevated flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-brand/20 flex items-center justify-center shrink-0">
-                      <FeedIcon />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{customFeedLookup.label}</p>
-                      <p className="text-xs text-muted-foreground truncate">{customFeedLookup.description || customFeedLookup.uri}</p>
-                    </div>
-                    {isSubscribed(customFeedLookup.uri) ? (
-                      <span className="text-xs text-muted-foreground font-medium">Added</span>
-                    ) : (
-                      <button
-                        onClick={() => handleSubscribe(customFeedLookup)}
-                        className="px-4 py-1.5 rounded-full bg-brand text-black text-xs font-semibold hover:bg-brand-hover transition-colors shrink-0"
-                      >
-                        Add Feed
-                      </button>
-                    )}
-                  </div>
-                )}
-              </details>
-            </section>
-
-            {/* Search results */}
-            {searchResults !== null && (
-              <section className="px-4 pt-4">
-                <h2 className="text-base font-bold text-foreground mb-2">
-                  Results for &ldquo;{searchQuery}&rdquo;
-                </h2>
-                {searchResults.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No feeds found</p>
-                ) : (
-                  <FeedList
-                    feeds={searchResults}
-                    isSubscribed={isSubscribed}
-                    onSubscribe={handleSubscribe}
-                    onUnsubscribe={handleUnsubscribe}
-                  />
-                )}
-              </section>
-            )}
 
             {/* Curated feeds */}
             <section className="px-4 pt-4">
@@ -544,16 +345,16 @@ function FeedList({
         return (
           <div
             key={feed.uri}
-            className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/30 transition-colors group"
+            className="flex items-center gap-4 p-4 rounded-2xl transition-colors hover:bg-accent/40 group"
           >
             {feed.avatar ? (
               <img
                 src={feed.avatar}
                 alt={feed.label}
-                className="h-10 w-10 rounded-xl object-cover shrink-0"
+                className="h-11 w-11 rounded-xl object-cover shrink-0"
               />
             ) : (
-              <div className="h-10 w-10 rounded-xl bg-brand/15 flex items-center justify-center shrink-0 group-hover:bg-brand/20 transition-colors">
+              <div className="h-11 w-11 rounded-xl bg-brand/15 flex items-center justify-center shrink-0 group-hover:bg-brand/20 transition-colors">
                 <FeedIcon />
               </div>
             )}
@@ -570,7 +371,7 @@ function FeedList({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-muted-foreground truncate leading-relaxed">
                 {feed.description || (feed.creatorHandle ? `by @${feed.creatorHandle}` : '')}
               </p>
               {feed.category && showCategory && (
@@ -590,7 +391,7 @@ function FeedList({
             ) : (
               <button
                 onClick={() => onSubscribe(feed)}
-                className="px-4 py-1.5 rounded-full bg-brand text-black text-xs font-semibold hover:bg-brand-hover transition-colors shrink-0"
+                className="px-4 py-1.5 rounded-full bg-brand text-white text-xs font-semibold hover:bg-brand-hover transition-colors shrink-0"
               >
                 + Add
               </button>

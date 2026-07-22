@@ -157,8 +157,8 @@ function ComposeForm() {
   }, []);
 
   const handleSubmit = async () => {
-    if (!text.trim() && images.length === 0) {
-      toast.error('Add some text or an image');
+    if (images.length === 0) {
+      toast.error('Add a photo or video to post');
       return;
     }
     setIsSubmitting(true);
@@ -206,7 +206,8 @@ function ComposeForm() {
             <Button
               size="sm"
               onClick={handleSubmit}
-              disabled={isSubmitting || (!text.trim() && images.length === 0)}
+              disabled={isSubmitting || images.length === 0}
+              title={images.length === 0 ? 'Add a photo or video to post' : ''}
             >
               {isSubmitting ? 'Posting...' : 'Post'}
             </Button>

@@ -9,11 +9,13 @@ import {
   Users,
   Plus,
   Bell,
+  Play,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { label: 'Home', path: '/feed', icon: 'home' },
   { label: 'Search', path: '/search', icon: 'search' },
+  { label: 'Reels', path: '/reels', icon: 'reels' },
   { label: 'Groups', path: '/groups', icon: 'groups' },
   { label: 'Compose', path: '/compose', icon: 'plus', center: true },
   { label: 'Notifications', path: '/notifications', icon: 'bell', badge: true },
@@ -73,6 +75,7 @@ export function MobileNav() {
                   <div className={`h-6 w-6 ${isActive ? 'text-brand' : 'text-muted-foreground'}`}>
                     {item.icon === 'home' && <Home className="h-6 w-6" />}
                     {item.icon === 'search' && <Search className="h-6 w-6" />}
+                    {item.icon === 'reels' && <Play className="h-6 w-6" />}
                     {item.icon === 'groups' && <Users className="h-6 w-6" />}
                     {item.icon === 'bell' && <Bell className="h-6 w-6" />}
                   </div>

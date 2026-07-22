@@ -29,10 +29,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
-        <meta name="color-scheme" content="dark" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="color-scheme" content="light" />
+        <meta name="theme-color" content="#ffffff" />
       </head>
       <body
         className={`${geistSans.variable} ${plusJakartaSans.variable} antialiased bg-surface-base text-foreground`}

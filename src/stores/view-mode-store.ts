@@ -10,7 +10,7 @@ interface ViewModeState {
 export const useViewModeStore = create<ViewModeState>()(
   persist(
     (set) => ({
-      mode: 'grid',
+      mode: 'classic',
       setMode: (mode) => set({ mode }),
     }),
     { name: 'rose-view-mode' }
