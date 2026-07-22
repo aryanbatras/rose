@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAgentFromRequest } from '@/services/agent';
-import { CURATED_FEEDS, getFeedGeneratorsInfo } from '@/services/feeds';
+import {
+  CURATED_FEEDS,
+  getFeedGeneratorsInfo,
+  getSuggestedFeeds,
+  getPopularFeedGenerators,
+} from '@/services/feeds';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,20 +15,45 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
+    const mode = searchParams.get('mode') || 'curated';
     const feedUrisParam = searchParams.get('uris');
+    const query = searchParams.get('query');
+    const cursor = searchParams.get('cursor');
+    const limit = Math.min(Number(searchParams.get('limit')) || 30, 100);
 
+    // ─── Mode: Lookup specific feed URIs ──────────────────────────
     if (feedUrisParam) {
-      // Specific feed URIs requested (comma-separated)
       const uris = feedUrisParam.split(',').map((u) => u.trim()).filter(Boolean);
       const feeds = await getFeedGeneratorsInfo(agent, uris);
       return NextResponse.json({ feeds });
     }
 
-    // Return curated feeds with live metadata
+    // ─── Mode: Suggested feeds ────────────────────────────────────
+    if (mode === 'suggested') {
+      const result = await getSuggestedFeeds(agent, limit, cursor || undefined);
+      return NextResponse.json({
+        feeds: result.feeds,
+        cursor: result.cursor,
+      });
+    }
+
+    // ─── Mode: Popular / search feeds ─────────────────────────────
+    if (mode === 'popular') {
+      const result = await getPopularFeedGenerators(agent, {
+        limit,
+        cursor: cursor || undefined,
+        query: query || undefined,
+      });
+      return NextResponse.json({
+        feeds: result.feeds,
+        cursor: result.cursor,
+      });
+    }
+
+    // ─── Default mode: Curated feeds with live metadata ───────────
     const curatedUris = CURATED_FEEDS.map((f) => f.uri);
     const liveFeeds = await getFeedGeneratorsInfo(agent, curatedUris);
 
-    // Merge live metadata with our curated defaults as fallback
     const merged = CURATED_FEEDS.map((curated) => {
       const live = liveFeeds.find((f) => f.uri === curated.uri);
       return {

@@ -90,6 +90,22 @@ export const CURATED_FEEDS = [
 ];
 
 /**
+ * Normalize a GeneratorView object from Bluesky into a uniform FeedInfo shape.
+ */
+function normalizeGeneratorView(view: any) {
+  return {
+    uri: view.uri,
+    label: view.displayName || view.uri.split('/').pop() || 'Custom Feed',
+    description: view.description || '',
+    avatar: view.avatar,
+    creatorDid: view.creator?.did,
+    creatorHandle: view.creator?.handle,
+    creatorDisplayName: view.creator?.displayName,
+    likeCount: view.likeCount ?? 0,
+  };
+}
+
+/**
  * Fetch metadata for multiple feed generators at once.
  */
 export async function getFeedGeneratorsInfo(
@@ -98,14 +114,84 @@ export async function getFeedGeneratorsInfo(
 ): Promise<Array<{ uri: string; label: string; description: string; avatar?: string }>> {
   try {
     const response = await agent.app.bsky.feed.getFeedGenerators({ feeds: feedUris });
-    return response.data.feeds.map((view: any) => ({
-      uri: view.uri,
-      label: view.displayName || view.uri.split('/').pop() || 'Custom Feed',
-      description: view.description || '',
-      avatar: view.avatar,
-    }));
+    return response.data.feeds.map((view: any) => normalizeGeneratorView(view));
   } catch {
     return [];
+  }
+}
+
+/**
+ * Fetch suggested feeds for the current user.
+ * Uses app.bsky.feed.getSuggestedFeeds — no search, returns Bluesky's own recommendations.
+ */
+export async function getSuggestedFeeds(
+  agent: BskyAgent,
+  limit = 30,
+  cursor?: string
+): Promise<{
+  feeds: Array<{
+    uri: string;
+    label: string;
+    description: string;
+    avatar?: string;
+    creatorDid?: string;
+    creatorHandle?: string;
+    creatorDisplayName?: string;
+    likeCount: number;
+  }>;
+  cursor?: string;
+}> {
+  try {
+    const response = await agent.app.bsky.feed.getSuggestedFeeds({ limit, cursor });
+    return {
+      feeds: response.data.feeds.map((view: any) => normalizeGeneratorView(view)),
+      cursor: response.data.cursor,
+    };
+  } catch (error) {
+    console.error('getSuggestedFeeds error:', error);
+    return { feeds: [] };
+  }
+}
+
+/**
+ * Fetch popular/trending feed generators.
+ * Uses app.bsky.unspecced.getPopularFeedGenerators which supports an optional `query` param for search.
+ * This is the main endpoint for discovering 50,000+ custom feeds on Bluesky.
+ */
+export async function getPopularFeedGenerators(
+  agent: BskyAgent,
+  options?: {
+    limit?: number;
+    cursor?: string;
+    query?: string; // Optional search term to filter feeds by name/description
+  }
+): Promise<{
+  feeds: Array<{
+    uri: string;
+    label: string;
+    description: string;
+    avatar?: string;
+    creatorDid?: string;
+    creatorHandle?: string;
+    creatorDisplayName?: string;
+    likeCount: number;
+  }>;
+  cursor?: string;
+}> {
+  try {
+    const params: Record<string, any> = {};
+    if (options?.limit) params.limit = options.limit;
+    if (options?.cursor) params.cursor = options.cursor;
+    if (options?.query) params.query = options.query;
+
+    const response = await (agent.app.bsky.unspecced as any).getPopularFeedGenerators(params);
+    return {
+      feeds: response.data.feeds.map((view: any) => normalizeGeneratorView(view)),
+      cursor: response.data.cursor,
+    };
+  } catch (error) {
+    console.error('getPopularFeedGenerators error:', error);
+    return { feeds: [] };
   }
 }
 
