@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedSearch, useSearchPosts, useSearchActors } from '@/hooks/useSearch';
-import { FeedCard } from '@/components/feed/FeedCard';
 import { Avatar } from '@/components/ui/avatar';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
 import { Play, Image, LayoutGrid } from 'lucide-react';
@@ -224,15 +223,55 @@ export default function SearchPage() {
             )}
 
             {(tab === 'top' || tab === 'posts') && posts.length > 0 && (
-              <div>
+              <div className="px-2 pt-3">
                 {(tab === 'top') && actors.length > 0 && (
-                  <div className="border-t border-border mt-2">
-                    <h2 className="px-4 pt-4 pb-2 text-sm font-semibold text-foreground">Posts</h2>
+                  <div className="px-2 pb-3">
+                    <h2 className="text-sm font-semibold text-foreground">Posts</h2>
                   </div>
                 )}
-                {posts.map((item: any, index: number) => (
-                  <FeedCard key={`${item.uri}-${index}`} item={item} />
-                ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {posts.map((item: any, index: number) => {
+                    const em = item.record?.embed || item.embed;
+                    const images = em?.images || [];
+                    const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
+                    const isVideo = (em?.$type || '').includes('video');
+                    const isMultiImage = images.length > 1;
+                    const authorName = item.author?.displayName || item.author?.handle || '';
+
+                    return thumbUrl ? (
+                      <button
+                        key={`${item.uri}-${index}`}
+                        onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
+                        className="relative aspect-square overflow-hidden rounded-2xl bg-surface-elevated group cursor-pointer shadow-sm"
+                      >
+                        <img src={thumbUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" loading="lazy" />
+                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                          <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="h-5 w-5 rounded-full overflow-hidden ring-1 ring-white/30 shrink-0">
+                                {item.author?.avatar && <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />}
+                              </div>
+                              <span className="text-xs font-semibold text-white truncate drop-shadow-sm">{authorName}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-white/70">
+                              <span>❤ {item.likeCount || 0}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {isVideo && (
+                          <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                            <Play className="h-3 w-3 text-white fill-white ml-0.5" strokeWidth={0} />
+                          </div>
+                        )}
+                        {isMultiImage && (
+                          <div className="absolute top-2 left-2 h-5 w-5 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                            <Image className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    ) : null;
+                  })}
+                </div>
               </div>
             )}
 

@@ -227,7 +227,9 @@ export default function ReelsPage() {
     if (loading || loadingMore || reels.length === 0 || fetchingRef.current) return;
     const sk = activeFeed.type + (activeFeed.uri || '');
     if (!hasMoreRef.current[sk]) return;
-    if (currentIndex < reels.length - 3) return;
+    // Pre-load more when user has scrolled through 70% of loaded reels
+    const threshold = Math.floor(reels.length * 0.7);
+    if (currentIndex < threshold) return;
     fetchVideosRef.current!(false);
   }, [currentIndex, loading, loadingMore, reels.length, activeFeed]);
 
@@ -265,11 +267,13 @@ export default function ReelsPage() {
     };
   }, [reels.length]);
 
-  // Auto-scroll to first reel on load/feed change
+  // Auto-scroll to first reel only on initial load (not when appending more)
+  const initialLoadedRef = useRef(false);
   useEffect(() => {
-    if (reels.length > 0 && containerRef.current) {
+    if (reels.length > 0 && !initialLoadedRef.current && containerRef.current) {
       const first = containerRef.current.children[0] as HTMLElement;
       if (first) first.scrollIntoView({ block: 'start' });
+      initialLoadedRef.current = true;
     }
   }, [reels.length]);
 
@@ -314,6 +318,7 @@ export default function ReelsPage() {
     cursorRef.current = {};
     allVideosRef.current = [];
     setCurrentIndex(0);
+    initialLoadedRef.current = false;
     setShowFeedPicker(false);
   }, []);
 

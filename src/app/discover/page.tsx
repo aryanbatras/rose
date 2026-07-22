@@ -31,19 +31,80 @@ export default function DiscoverPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('discover');
   const { query, setQuery, debouncedQuery } = useDebouncedSearch(300);
+
+  // ── Popular feeds (default, no search) ──────────────────────────
+  const [popularFeeds, setPopularFeeds] = useState<FeedInfo[]>([]);
+  const [popularLoading, setPopularLoading] = useState(true);
+  const [popularLoadingMore, setPopularLoadingMore] = useState(false);
+  const popularCursorRef = useRef<string | null>(null);
+  const popularSentinelRef = useRef<HTMLDivElement | null>(null);
+  const fetchingPopularRef = useRef(false);
+
+  // ── Search results ─────────────────────────────────────────────
   const [searchResults, setSearchResults] = useState<FeedInfo[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const searchCursorRef = useRef<string | null>(null);
 
-  // When debounced query changes, fetch from Bluesky popular feeds API
+  const hasQuery = debouncedQuery.trim().length >= 1;
+
+  // Fetch popular feeds on mount (no search query) — cached
   useEffect(() => {
-    if (!isAuthenticated) return;
-    if (!debouncedQuery.trim()) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
+    if (!isAuthenticated || hasQuery) return;
+    if (popularFeeds.length > 0) return; // cache hit — don't re-fetch
+    setPopularLoading(true);
+    popularCursorRef.current = null;
+    async function load() {
+      try {
+        const res = await fetch('/api/feed/generators?mode=popular&limit=25');
+        if (res.ok) {
+          const data = await res.json();
+          setPopularFeeds(data.feeds || []);
+          popularCursorRef.current = data.cursor || null;
+        } else {
+          setPopularFeeds([]);
+        }
+      } catch {
+        setPopularFeeds([]);
+      }
+      setPopularLoading(false);
     }
+    load();
+  }, [isAuthenticated, hasQuery]);
+
+  // Infinite scroll for popular feeds (with fetching guard)
+  useEffect(() => {
+    if (!isAuthenticated || hasQuery || popularLoading || !popularCursorRef.current) return;
+    const el = popularSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || !popularCursorRef.current || fetchingPopularRef.current) return;
+        fetchingPopularRef.current = true;
+        setPopularLoadingMore(true);
+        const cursor = popularCursorRef.current;
+        popularCursorRef.current = null;
+        fetch(`/api/feed/generators?mode=popular&limit=25&cursor=${encodeURIComponent(cursor)}`)
+          .then((r) => r.ok ? r.json() : { feeds: [] })
+          .then((data) => {
+            setPopularFeeds((prev) => [...prev, ...(data.feeds || [])]);
+            popularCursorRef.current = data.cursor || null;
+          })
+          .catch(() => {})
+          .finally(() => {
+            setPopularLoadingMore(false);
+            fetchingPopularRef.current = false;
+          });
+      },
+      { rootMargin: '300px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isAuthenticated, hasQuery, popularLoading]);
+
+  // Search when debounced query changes
+  useEffect(() => {
+    if (!isAuthenticated || !hasQuery) return;
     async function searchFeeds() {
       setSearching(true);
       setHasSearched(true);
@@ -63,7 +124,7 @@ export default function DiscoverPage() {
       setSearching(false);
     }
     searchFeeds();
-  }, [isAuthenticated, debouncedQuery]);
+  }, [isAuthenticated, debouncedQuery, hasQuery]);
 
   // Auth redirect
   useEffect(() => {
@@ -129,10 +190,8 @@ export default function DiscoverPage() {
       </header>
 
       <main>
-        {/* ─── SEARCH FEEDS TAB ──────────────────────── */}
         {activeTab === 'discover' && (
           <section className="px-4 pt-4">
-            {/* Search input — calls Bluesky API to search 50,000+ feeds */}
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" strokeWidth={2} />
               <input
@@ -156,42 +215,74 @@ export default function DiscoverPage() {
               )}
             </div>
 
-            {searching ? (
-              <div className="space-y-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3">
-                    <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                      <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+            {hasQuery ? (
+              searching ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3">
+                      <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                        <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : hasSearched && searchResults.length === 0 ? (
-              <div className="py-16 text-center">
-                <Search className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
-                <p className="text-muted-foreground">No feeds found for &ldquo;{debouncedQuery}&rdquo;</p>
-                <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
-              </div>
-            ) : !query ? (
-              <div className="py-16 text-center">
-                <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
-                <p className="text-muted-foreground">Search 50,000+ Bluesky feeds</p>
-                <p className="text-sm text-muted-foreground mt-1">Type above to find feeds by name, description, or creator</p>
-              </div>
+                  ))}
+                </div>
+              ) : hasSearched && searchResults.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Search className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
+                  <p className="text-muted-foreground">No feeds found for &ldquo;{debouncedQuery}&rdquo;</p>
+                  <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
+                </div>
+              ) : (
+                <FeedList
+                  feeds={searchResults}
+                  isSubscribed={isSubscribed}
+                  onSubscribe={handleSubscribe}
+                  onUnsubscribe={handleUnsubscribe}
+                />
+              )
             ) : (
-              <FeedList
-                feeds={searchResults}
-                isSubscribed={isSubscribed}
-                onSubscribe={handleSubscribe}
-                onUnsubscribe={handleUnsubscribe}
-              />
+              <>
+                {popularLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3">
+                        <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                          <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : popularFeeds.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
+                    <p className="text-muted-foreground">No popular feeds right now</p>
+                    <p className="text-sm text-muted-foreground mt-1">Try searching instead</p>
+                  </div>
+                ) : (
+                  <>
+                    <FeedList
+                      feeds={popularFeeds}
+                      isSubscribed={isSubscribed}
+                      onSubscribe={handleSubscribe}
+                      onUnsubscribe={handleUnsubscribe}
+                    />
+                    <div ref={popularSentinelRef} className="h-4" />
+                    {popularLoadingMore && (
+                      <div className="py-6 flex justify-center">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-brand/70" />
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </section>
         )}
 
-        {/* ─── PEOPLE TAB ──────────────────────────────── */}
         {activeTab === 'people' && (
           <section className="px-4 pt-4">
             <h2 className="text-base font-bold text-foreground mb-3">Suggested for you</h2>
@@ -234,7 +325,6 @@ export default function DiscoverPage() {
           </section>
         )}
 
-        {/* ─── SAVED FEEDS TAB ──────────────────────────── */}
         {activeTab === 'saved' && (
           <section className="px-4 pt-4">
             <h2 className="text-base font-bold text-foreground mb-3">
