@@ -348,6 +348,40 @@ body {
   animation: fade-up 0.4s ease both;
 }
 
+/* ── Interaction buttons: icon + count side-by-side ── */
+.interact-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  transition: color 0.15s ease, background 0.15s ease;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+.interact-btn:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.interact-btn:active {
+  transform: scale(0.95);
+}
+
+.interact-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.interact-btn.liked {
+  color: var(--destructive);
+}
+
 /* ── Mobile menu drawer slide-up ── */
 @keyframes slide-up {
   from {
