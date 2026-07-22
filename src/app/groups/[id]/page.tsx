@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useGroupNameStore } from '@/stores/group-name-store';
-import type { GroupInfo, MessageView, BasicProfileView, JoinLink } from '@/types/chat';
+import type { GroupInfo, MessageView, BasicProfileView, JoinLink, JoinRequestView } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { formatRelativeTime } from '@/lib/time';
@@ -33,6 +33,11 @@ export default function GroupDetailPage() {
   const [showMembers, setShowMembers] = useState(false);
   const [addMemberInput, setAddMemberInput] = useState('');
   const [memberActionLoading, setMemberActionLoading] = useState(false);
+
+  // ── Pending join requests ───────────────────────────────────────────
+  const [pendingRequests, setPendingRequests] = useState<JoinRequestView[]>([]);
+  const [showRequests, setShowRequests] = useState(false);
+  const [requestsLoading, setRequestsLoading] = useState(false);
 
   // Fetch group data
   useEffect(() => {
@@ -167,6 +172,81 @@ export default function GroupDetailPage() {
     toast.success('Invite code copied to clipboard!');
   }, [joinLink]);
 
+  // ── Pending requests actions ─────────────────────────────────────────
+  const loadPendingRequests = useCallback(async () => {
+    if (!convoId) return;
+    setRequestsLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${convoId}/requests`);
+      if (res.ok) {
+        const data = await res.json();
+        setPendingRequests(data.requests || []);
+      }
+    } catch { /* ignore */ }
+    setRequestsLoading(false);
+  }, [convoId]);
+
+  // Load requests when panel is opened
+  useEffect(() => {
+    if (showRequests) loadPendingRequests();
+  }, [showRequests, loadPendingRequests]);
+
+  const handleApproveRequest = useCallback(
+    async (memberDid: string, memberName: string) => {
+      if (!convoId || requestsLoading) return;
+      setRequestsLoading(true);
+      try {
+        const res = await fetch(`/api/groups/${convoId}/requests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'approve', member: memberDid }),
+        });
+        if (res.ok) {
+          toast.success(`Approved ${memberName}`);
+          // Refresh members and pending requests
+          loadPendingRequests();
+          const membersRes = await fetch(`/api/groups/${convoId}?scope=members`);
+          if (membersRes.ok) {
+            const membersData = await membersRes.json();
+            setMembers(membersData.members || []);
+          }
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Failed to approve request');
+        }
+      } catch {
+        toast.error('Connection error');
+      }
+      setRequestsLoading(false);
+    },
+    [convoId, requestsLoading, loadPendingRequests]
+  );
+
+  const handleRejectRequest = useCallback(
+    async (memberDid: string, memberName: string) => {
+      if (!convoId || requestsLoading) return;
+      setRequestsLoading(true);
+      try {
+        const res = await fetch(`/api/groups/${convoId}/requests`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reject', member: memberDid }),
+        });
+        if (res.ok) {
+          toast.success(`Rejected ${memberName}`);
+          loadPendingRequests();
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Failed to reject request');
+        }
+      } catch {
+        toast.error('Connection error');
+      }
+      setRequestsLoading(false);
+    },
+    [convoId, requestsLoading, loadPendingRequests]
+  );
+
   // ── Member management actions ───────────────────────────────────────
   const handleAddMembers = useCallback(async () => {
     const input = addMemberInput.trim();
@@ -279,6 +359,26 @@ export default function GroupDetailPage() {
               {group ? `${group.memberCount} members` : ''}
             </p>
           </div>
+
+          {/* Pending requests button */}
+          {!loading && (
+            <button
+              onClick={() => setShowRequests(!showRequests)}
+              className={`p-2 rounded-lg transition-colors relative ${
+                showRequests ? 'bg-brand/20 text-brand' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+              aria-label="Pending join requests"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              {pendingRequests.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 min-w-[14px] flex items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white px-1">
+                  {pendingRequests.length}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Members button */}
           {!loading && (
@@ -473,6 +573,110 @@ export default function GroupDetailPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Pending requests panel */}
+      {showRequests && (
+        <div className="border-b border-border bg-surface-elevated/50 px-4 py-4 max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              Pending Requests
+              {pendingRequests.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  ({pendingRequests.length})
+                </span>
+              )}
+            </h3>
+            {pendingRequests.length > 0 && (
+              <button
+                onClick={loadPendingRequests}
+                disabled={requestsLoading}
+                className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Refresh requests"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${requestsLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {requestsLoading && pendingRequests.length === 0 ? (
+            <div className="space-y-2">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-2 p-2">
+                  <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-3 w-28 animate-pulse rounded bg-muted" />
+                    <div className="h-2 w-16 animate-pulse rounded bg-muted/50" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : pendingRequests.length === 0 ? (
+            <div className="py-4 text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-muted-foreground">No pending requests</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {pendingRequests.map((req) => (
+                <div
+                  key={req.requestedBy?.did || req.convoId}
+                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent/20 transition-colors"
+                >
+                  <Avatar
+                    src={req.requestedBy?.avatar}
+                    alt={req.requestedBy?.handle || ''}
+                    size="sm"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground truncate block">
+                      {req.requestedBy?.displayName || req.requestedBy?.handle || 'Unknown'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Requested {formatRelativeTime(req.requestedAt)}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button
+                      onClick={() =>
+                        handleApproveRequest(
+                          req.requestedBy?.did,
+                          req.requestedBy?.displayName || req.requestedBy?.handle || 'user'
+                        )
+                      }
+                      disabled={requestsLoading}
+                      className="p-1.5 rounded-lg text-green-500 hover:bg-green-500/10 transition-colors disabled:opacity-50"
+                      aria-label="Approve request"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() =>
+                        handleRejectRequest(
+                          req.requestedBy?.did,
+                          req.requestedBy?.displayName || req.requestedBy?.handle || 'user'
+                        )
+                      }
+                      disabled={requestsLoading}
+                      className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                      aria-label="Reject request"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

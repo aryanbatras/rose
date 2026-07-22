@@ -108,3 +108,10 @@ export interface CreateJoinLinkInput {
   joinRule: JoinRule;
   requireApproval?: boolean;
 }
+
+/** A pending join request for a group */
+export interface JoinRequestView {
+  convoId: string;
+  requestedBy: BasicProfileView;
+  requestedAt: string;
+}

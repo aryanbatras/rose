@@ -8,6 +8,7 @@ import type {
   JoinLink,
   JoinResult,
   JoinRule,
+  JoinRequestView,
 } from '@/types/chat';
 
 /**
@@ -432,6 +433,68 @@ export async function removeGroupMembers(
     return { convo: response.data?.convo };
   } catch (error: any) {
     return { error: error?.message || 'Failed to remove members' };
+  }
+}
+
+/**
+ * List pending join requests for a group.
+ */
+export async function listJoinRequests(
+  agent: BskyAgent,
+  convoId: string,
+  cursor?: string,
+  limit = 30
+): Promise<{ requests: JoinRequestView[]; cursor?: string; error?: string }> {
+  try {
+    const response = await (agent.api.chat.bsky.group as any).listJoinRequests({
+      convoId,
+      limit,
+      cursor,
+    });
+    return {
+      requests: response.data?.requests || [],
+      cursor: response.data?.cursor,
+    };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to list join requests', requests: [] };
+  }
+}
+
+/**
+ * Approve a pending join request for a group.
+ */
+export async function approveJoinRequest(
+  agent: BskyAgent,
+  convoId: string,
+  memberDid: string
+): Promise<{ convo?: ConvoView; error?: string }> {
+  try {
+    const response = await (agent.api.chat.bsky.group as any).approveJoinRequest({
+      convoId,
+      member: memberDid,
+    });
+    return { convo: response.data?.convo };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to approve request' };
+  }
+}
+
+/**
+ * Reject a pending join request for a group.
+ */
+export async function rejectJoinRequest(
+  agent: BskyAgent,
+  convoId: string,
+  memberDid: string
+): Promise<{ error?: string }> {
+  try {
+    await (agent.api.chat.bsky.group as any).rejectJoinRequest({
+      convoId,
+      member: memberDid,
+    });
+    return {};
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to reject request' };
   }
 }
 
