@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useGroupNameStore } from '@/stores/group-name-store';
 import type { GroupInfo, MessageView, BasicProfileView, JoinLink } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
@@ -41,6 +42,11 @@ export default function GroupDetailPage() {
 
         if (groupRes.ok) {
           const groupData = await groupRes.json();
+          // Apply stored name on top of API data (Bluesky ConvoView lacks name)
+          const name = useGroupNameStore.getState().names[convoId];
+          if (groupData.group && name) {
+            groupData.group.name = name;
+          }
           setGroup(groupData.group);
         }
         if (membersRes.ok) {

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useGroupPolling } from '@/hooks/useGroupPolling';
+import { useGroupNameStore } from '@/stores/group-name-store';
 import type { GroupInfo } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
@@ -18,6 +19,18 @@ export default function GroupsPage() {
   const [groupName, setGroupName] = useState('');
   const [memberHandles, setMemberHandles] = useState('');
 
+  // ── Group name persistence ──────────────────────────────────────────
+  const setStoredName = useGroupNameStore((s) => s.setName);
+
+  /** Apply stored names on top of API data (Bluesky ConvoView lacks name) */
+  function applyStoredNames(raw: GroupInfo[]): GroupInfo[] {
+    const names = useGroupNameStore.getState().names;
+    return raw.map((g) => ({
+      ...g,
+      name: names[g.convoId] || g.name,
+    }));
+  }
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');
   }, [isAuthenticated, authLoading, router]);
@@ -27,7 +40,7 @@ export default function GroupsPage() {
     if (!isAuthenticated || !session) return;
     fetch('/api/groups')
       .then((res) => (res.ok ? res.json() : { groups: [] }))
-      .then((data) => setGroups(data.groups || []))
+      .then((data) => setGroups(applyStoredNames(data.groups || [])))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [isAuthenticated, session]);
@@ -35,7 +48,15 @@ export default function GroupsPage() {
   // Background polling every 30s (never touches loading state)
   const { refreshNow } = useGroupPolling({
     isAuthenticated: isAuthenticated && !!session,
-    onUpdate: useCallback((freshGroups: GroupInfo[]) => setGroups(freshGroups), []),
+    onUpdate: useCallback((freshGroups: GroupInfo[]) => {
+      const names = useGroupNameStore.getState().names;
+      setGroups(
+        freshGroups.map((g) => ({
+          ...g,
+          name: names[g.convoId] || g.name,
+        }))
+      );
+    }, []),
   });
 
   const handleCreate = async () => {
@@ -63,6 +84,10 @@ export default function GroupsPage() {
 
       if (res.ok) {
         const data = await res.json();
+        // Persist the group name so it doesn't fall back to member names
+        if (data.convoId) {
+          setStoredName(data.convoId, groupName.trim());
+        }
         toast.success('Group created!');
         setShowCreate(false);
         setGroupName('');
