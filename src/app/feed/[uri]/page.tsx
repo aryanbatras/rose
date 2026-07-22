@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { usePostThread } from '@/hooks/useFeed';
 import { FeedCard } from '@/components/feed/FeedCard';
+import { ReplyThread } from '@/components/feed/ReplyThread';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
 import { useEffect } from 'react';
 
@@ -81,15 +82,10 @@ export default function PostThreadPage() {
           <FeedCard item={thread as any} />
         )}
 
-        {/* Replies */}
+        {/* Replies — recursive nesting */}
         {'replies' in thread && thread.replies?.length > 0 && (
           <div className="border-t border-border">
-            {thread.replies.map((reply: any, index: number) => (
-              <FeedCard
-                key={`${reply.uri || reply.post?.uri}-${index}`}
-                item={reply.post || reply}
-              />
-            ))}
+            <ReplyThread replies={thread.replies} />
           </div>
         )}
 
