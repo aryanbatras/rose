@@ -42,7 +42,8 @@ export interface Facet {
 export interface Embed {
   $type: string;
   images?: Array<{
-    image: BlobRef;
+    thumb: string;
+    fullsize: string;
     alt: string;
     aspectRatio?: { width: number; height: number };
   }>;
@@ -55,6 +56,12 @@ export interface Embed {
   record?: {
     uri: string;
     cid: string;
+    author?: ActorView;
+  };
+  video?: {
+    cid: string;
+    playlist?: string;
+    thumbnail?: string;
   };
 }
 
@@ -77,6 +84,14 @@ export interface FeedItem {
     repost?: string;
   };
   labels?: Label[];
+  reason?: {
+    $type: string;
+    by: { handle: string; displayName?: string; avatar?: string };
+  };
+  reply?: {
+    root: FeedItem;
+    parent: FeedItem;
+  };
 }
 
 export interface ActorView {
@@ -159,3 +174,57 @@ export interface PaginatedResponse<T> {
 
 export type FeedType = 'following' | 'trending' | 'discover';
 export type NotificationFilter = 'all' | 'likes' | 'replies' | 'follows' | 'mentions';
+
+// ─── View Modes ────────────────────────────────────
+export type ViewMode = 'classic' | 'grid' | 'reels' | 'compact';
+
+// ─── Filter Types ───────────────────────────────────
+export interface ContentFilters {
+  hideReposts: boolean;
+  hideReplies: boolean;
+  hideQuotePosts: boolean;
+  mediaOnly: boolean;
+  videoOnly: boolean;
+  textOnly: boolean;
+}
+
+export interface MuteFilters {
+  mutedWords: string[];
+  mutedUsers: string[];
+  mutedTags: string[];
+}
+
+export interface DisplayFilters {
+  hideEngagementMetrics: boolean;
+  feedDensity: 'comfortable' | 'compact';
+}
+
+export interface AllFilters {
+  content: ContentFilters;
+  mute: MuteFilters;
+  display: DisplayFilters;
+}
+
+export interface Bookmark {
+  uri: string;
+  cid: string;
+  author: { handle: string; displayName?: string; avatar?: string };
+  text: string;
+  savedAt: string;
+}
+
+export interface FeedSource {
+  type: 'following' | 'discover' | 'custom' | 'list';
+  uri?: string;
+  label: string;
+  icon?: string;
+}
+
+// ─── Keyboard Shortcut ────────────────────────────
+export interface Shortcut {
+  key: string;
+  label: string;
+  description: string;
+  ctrl?: boolean;
+  shift?: boolean;
+}
