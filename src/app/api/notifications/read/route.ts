@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 export async function POST() {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
+    const sessionCookie = cookieStore.get('voiceflow_session');
     if (!sessionCookie) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }

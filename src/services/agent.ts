@@ -1,82 +1,60 @@
 'use server';
 
 import { BskyAgent } from '@atproto/api';
-import { cookies } from 'next/headers';
-import type { SessionData, DID } from '@/types/atproto';
+import type { SessionData } from '@/store/auth-store';
 
 const ATPROTO_SERVICE = process.env.ATPROTO_SERVICE_URL || 'https://bsky.social';
 
-let agentInstance: BskyAgent | null = null;
-
-async function getAgentInstance(): Promise<BskyAgent> {
-  if (!agentInstance) {
-    agentInstance = new BskyAgent({ service: ATPROTO_SERVICE });
-  }
-  return agentInstance;
-}
-
+/**
+ * Authenticate user with the AT Protocol and return full session data.
+ */
 export async function authenticateUser(
   identifier: string,
   password: string
 ): Promise<{ session: SessionData | null; error?: string }> {
   try {
-    const agent = await getAgentInstance();
+    const agent = new BskyAgent({ service: ATPROTO_SERVICE });
     const response = await agent.login({ identifier, password });
     const loginData = response.data;
-    const session: SessionData = {
-      did: loginData.did as DID,
-      handle: loginData.handle,
-      accessJwt: loginData.accessJwt,
-      refreshJwt: loginData.refreshJwt,
-      active: loginData.active !== false,
+
+    return {
+      session: {
+        did: loginData.did,
+        handle: loginData.handle,
+        accessJwt: loginData.accessJwt,
+        refreshJwt: loginData.refreshJwt,
+        active: loginData.active !== false,
+      },
     };
-    return { session };
   } catch (error: any) {
     const message = error?.message || 'Authentication failed';
     return { session: null, error: message };
   }
 }
 
+/**
+ * Resume a session using stored tokens.
+ * Creates a fresh agent instance per call to avoid stale state.
+ */
 export async function resumeSession(
   sessionData: SessionData
 ): Promise<BskyAgent> {
-  const agent = await getAgentInstance();
-  try {
-    await agent.resumeSession({
-      did: sessionData.did as string,
-      handle: sessionData.handle,
-      accessJwt: sessionData.accessJwt,
-      refreshJwt: sessionData.refreshJwt,
-      active: sessionData.active ?? true,
-    });
-  } catch {
-    // If the BskyAgent internal refresh fails, session is truly expired
-    throw new Error('Session expired. Please log in again.');
-  }
+  const agent = new BskyAgent({ service: ATPROTO_SERVICE });
+  await agent.resumeSession({
+    did: sessionData.did,
+    handle: sessionData.handle,
+    accessJwt: sessionData.accessJwt,
+    refreshJwt: sessionData.refreshJwt,
+    active: sessionData.active ?? true,
+  });
   return agent;
 }
 
-export async function getAgentForSession(sessionData?: SessionData): Promise<BskyAgent | null> {
-  try {
-    const cookieStore = await cookies();
-
-    // If session data is provided directly, use it
-    if (sessionData) {
-      return await resumeSession(sessionData);
-    }
-    // Otherwise, try to read from cookie
-    const sessionCookie = cookieStore.get('voiceflow_session') || cookieStore.get('session');
-    if (!sessionCookie) return null;
-
-    const parsed: SessionData = JSON.parse(sessionCookie.value);
-    const agent = await resumeSession(parsed);
-    return agent;
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Store session data in httpOnly cookie for API route backward compatibility.
+ */
 export async function storeSession(session: SessionData): Promise<void> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   cookieStore.set('voiceflow_session', JSON.stringify(session), {
     httpOnly: true,
@@ -87,25 +65,92 @@ export async function storeSession(session: SessionData): Promise<void> {
   });
 }
 
-export async function updateSession(session: Partial<SessionData>): Promise<void> {
-  const cookieStore = await cookies();
-  const existing = cookieStore.get('voiceflow_session');
-  if (existing) {
-    const current: SessionData = JSON.parse(existing.value);
-    const updated: SessionData = { ...current, ...session };
-    cookieStore.set('voiceflow_session', JSON.stringify(updated), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
-    });
+/**
+ * Clear the session cookie.
+ */
+export async function clearSession(): Promise<void> {
+  try {
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    cookieStore.delete('voiceflow_session');
+  } catch {}
+}
+
+/**
+ * Get agent from session data (used by API routes).
+ * Accepts session data directly (from client via request body/headers)
+ * or reads from cookie if no session data provided.
+ */
+export async function getAgentForSession(sessionData?: SessionData): Promise<BskyAgent | null> {
+  try {
+    if (sessionData) {
+      return await createAgentFromSession(sessionData);
+    }
+    // Fallback: try to read from cookie (for backwards compatibility)
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('voiceflow_session') || cookieStore.get('session');
+    if (!sessionCookie) return null;
+    const parsed: SessionData = JSON.parse(sessionCookie.value);
+    return await createAgentFromSession(parsed);
+  } catch {
+    return null;
   }
 }
 
-export async function clearSession(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete('voiceflow_session');
+/**
+ * Create a BskyAgent from full session data.
+ * This creates a fresh agent per call to avoid stale singleton state.
+ */
+export async function createAgentFromSession(
+  sessionData: SessionData
+): Promise<BskyAgent | null> {
+  try {
+    const agent = new BskyAgent({ service: ATPROTO_SERVICE });
+    await agent.resumeSession({
+      did: sessionData.did,
+      handle: sessionData.handle,
+      accessJwt: sessionData.accessJwt,
+      refreshJwt: sessionData.refreshJwt,
+      active: sessionData.active ?? true,
+    });
+    return agent;
+  } catch {
+    return null;
+  }
 }
 
-export { getAgentInstance };
+/**
+ * Refresh an expired session using refresh token.
+ */
+export async function refreshSession(
+  sessionData: SessionData
+): Promise<{ session: SessionData | null; error?: string }> {
+  try {
+    const agent = new BskyAgent({ service: ATPROTO_SERVICE });
+    await agent.resumeSession({
+      did: sessionData.did,
+      handle: sessionData.handle,
+      accessJwt: sessionData.accessJwt,
+      refreshJwt: sessionData.refreshJwt,
+      active: sessionData.active ?? true,
+    });
+    // After resume, the agent has refreshed tokens internally
+    // We need to get the new session data
+    // BskyAgent stores session internally; we can read it back
+    if (agent.session) {
+      return {
+        session: {
+          did: agent.session.did as string,
+          handle: agent.session.handle,
+          accessJwt: agent.session.accessJwt,
+          refreshJwt: agent.session.refreshJwt,
+          active: true,
+        },
+      };
+    }
+    return { session: null, error: 'Session not available after refresh' };
+  } catch (error: any) {
+    return { session: null, error: error?.message || 'Refresh failed' };
+  }
+}

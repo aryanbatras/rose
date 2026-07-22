@@ -21,12 +21,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Store session in httpOnly cookie for API route backward compatibility
     await storeSession(session);
 
+    // Also return full session data for client-side Zustand localStorage storage
     return NextResponse.json({
       session: {
         did: session.did,
         handle: session.handle,
+        accessJwt: session.accessJwt,
+        refreshJwt: session.refreshJwt,
+        active: session.active,
       },
     });
   } catch (err) {
