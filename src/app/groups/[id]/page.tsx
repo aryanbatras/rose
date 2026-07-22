@@ -29,6 +29,11 @@ export default function GroupDetailPage() {
   const [joinLink, setJoinLink] = useState<JoinLink | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
 
+  // ── Member management ──────────────────────────────────────────────
+  const [showMembers, setShowMembers] = useState(false);
+  const [addMemberInput, setAddMemberInput] = useState('');
+  const [memberActionLoading, setMemberActionLoading] = useState(false);
+
   // Fetch group data
   useEffect(() => {
     if (!isAuthenticated || !convoId) return;
@@ -162,6 +167,81 @@ export default function GroupDetailPage() {
     toast.success('Invite code copied to clipboard!');
   }, [joinLink]);
 
+  // ── Member management actions ───────────────────────────────────────
+  const handleAddMembers = useCallback(async () => {
+    const input = addMemberInput.trim();
+    if (!input || memberActionLoading || !convoId) return;
+    setMemberActionLoading(true);
+
+    const handles = input
+      .split(/[\s,]+/)
+      .map((h) => h.trim().replace(/^@/, ''))
+      .filter(Boolean);
+
+    if (handles.length === 0) {
+      toast.error('Enter at least one handle');
+      setMemberActionLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/groups/${convoId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', memberDids: handles }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Added ${handles.length} member${handles.length > 1 ? 's' : ''}!`);
+        setAddMemberInput('');
+        // Refresh members list
+        const membersRes = await fetch(`/api/groups/${convoId}?scope=members`);
+        if (membersRes.ok) {
+          const membersData = await membersRes.json();
+          setMembers(membersData.members || []);
+        }
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to add members');
+      }
+    } catch {
+      toast.error('Connection error');
+    }
+    setMemberActionLoading(false);
+  }, [addMemberInput, memberActionLoading, convoId]);
+
+  const handleRemoveMember = useCallback(
+    async (memberDid: string, memberName: string) => {
+      if (memberActionLoading || !convoId) return;
+      setMemberActionLoading(true);
+      try {
+        const res = await fetch(`/api/groups/${convoId}/members`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove', memberDids: [memberDid] }),
+        });
+
+        if (res.ok) {
+          toast.success(`Removed ${memberName}`);
+          // Refresh members list
+          const membersRes = await fetch(`/api/groups/${convoId}?scope=members`);
+          if (membersRes.ok) {
+            const membersData = await membersRes.json();
+            setMembers(membersData.members || []);
+          }
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Failed to remove member');
+        }
+      } catch {
+        toast.error('Connection error');
+      }
+      setMemberActionLoading(false);
+    },
+    [memberActionLoading, convoId]
+  );
+
   if (authLoading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center">
@@ -199,6 +279,21 @@ export default function GroupDetailPage() {
               {group ? `${group.memberCount} members` : ''}
             </p>
           </div>
+
+          {/* Members button */}
+          {!loading && (
+            <button
+              onClick={() => setShowMembers(!showMembers)}
+              className={`p-2 rounded-lg transition-colors ${
+                showMembers ? 'bg-brand/20 text-brand' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+              aria-label="Manage members"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              </svg>
+            </button>
+          )}
 
           {/* Invite button */}
           {!loading && (
@@ -295,6 +390,89 @@ export default function GroupDetailPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Members panel */}
+      {showMembers && (
+        <div className="border-b border-border bg-surface-elevated/50 px-4 py-4 max-h-64 overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              Members ({members.length})
+            </h3>
+          </div>
+
+          {/* Add member input */}
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={addMemberInput}
+              onChange={(e) => setAddMemberInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddMembers();
+                }
+              }}
+              placeholder="Add members (handles, comma separated)"
+              className="flex-1 rounded-lg border border-border bg-surface-base px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand transition-colors"
+            />
+            <button
+              onClick={handleAddMembers}
+              disabled={memberActionLoading || !addMemberInput.trim()}
+              className="px-3 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors shrink-0"
+            >
+              {memberActionLoading ? '...' : 'Add'}
+            </button>
+          </div>
+
+          {/* Members list */}
+          <div className="space-y-1">
+            {members.map((member) => {
+              const isSelf = member.did === session?.did;
+              return (
+                <div
+                  key={member.did}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent/20 transition-colors"
+                >
+                  <Avatar
+                    src={member.avatar}
+                    alt={member.handle}
+                    size="sm"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground truncate block">
+                      {member.displayName || member.handle}
+                    </span>
+                    {member.displayName && (
+                      <span className="text-xs text-muted-foreground truncate block">
+                        @{member.handle}
+                      </span>
+                    )}
+                  </div>
+                  {isSelf ? (
+                    <span className="text-xs text-muted-foreground px-2">You</span>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        handleRemoveMember(
+                          member.did,
+                          member.displayName || member.handle
+                        )
+                      }
+                      disabled={memberActionLoading}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                      aria-label={`Remove ${member.displayName || member.handle}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

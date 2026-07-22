@@ -358,6 +358,84 @@ export async function enableJoinLink(
 }
 
 /**
+ * Add members to a group conversation.
+ * Resolves handles to DIDs before calling the API.
+ */
+export async function addGroupMembers(
+  agent: BskyAgent,
+  convoId: string,
+  memberIdentifiers: string[]
+): Promise<{ convo?: ConvoView; addedMembers?: BasicProfileView[]; error?: string }> {
+  try {
+    // Resolve all member identifiers (handles or DIDs) to DIDs in parallel
+    const results = await Promise.allSettled(
+      memberIdentifiers.map(async (identifier) => {
+        const did = await resolveHandle(agent, identifier);
+        if (!did) throw new Error(`Could not resolve ${identifier}`);
+        return did;
+      })
+    );
+
+    const dids: string[] = [];
+    const errors: string[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        dids.push(result.value);
+      } else {
+        errors.push(result.reason?.message || 'Unknown');
+      }
+    }
+
+    if (dids.length === 0) {
+      return { error: `Could not resolve any members. ${errors[0] || ''}` };
+    }
+
+    const response = await (agent.api.chat.bsky.group as any).addMembers({
+      convoId,
+      members: dids,
+    });
+    return {
+      convo: response.data?.convo,
+      addedMembers: response.data?.addedMembers,
+    };
+  } catch (error: any) {
+    const message = error?.message || 'Failed to add members';
+    if (message.includes('MemberLimitReached')) {
+      return { error: 'This group has reached its member limit.' };
+    }
+    if (message.includes('BlockedActor') || message.includes('BlockedByActor')) {
+      return { error: 'You have blocked one of these members or they blocked you.' };
+    }
+    if (message.includes('UserForbidsGroups')) {
+      return { error: 'One or more members do not allow group invitations.' };
+    }
+    if (message.includes('RecipientNotFound')) {
+      return { error: 'One or more members could not be found.' };
+    }
+    return { error: message };
+  }
+}
+
+/**
+ * Remove members from a group conversation.
+ */
+export async function removeGroupMembers(
+  agent: BskyAgent,
+  convoId: string,
+  memberDids: string[]
+): Promise<{ convo?: ConvoView; error?: string }> {
+  try {
+    const response = await (agent.api.chat.bsky.group as any).removeMembers({
+      convoId,
+      members: memberDids,
+    });
+    return { convo: response.data?.convo };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to remove members' };
+  }
+}
+
+/**
  * List mutual groups (groups where both the current user and another user are members).
  */
 export async function listMutualGroups(
