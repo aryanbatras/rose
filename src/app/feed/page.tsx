@@ -9,6 +9,7 @@ import { useFilterStore } from '@/stores/filter-store';
 import { useFeedSourceStore, PRESET_FEEDS } from '@/stores/feed-source-store';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { FeedCard } from '@/components/feed/FeedCard';
+import { BlueskyVideoPlayer } from '@/components/feed/BlueskyVideoPlayer';
 import { ViewModeToggle } from '@/components/feed/ViewModeToggle';
 import { FilterPanel } from '@/components/feed/FilterPanel';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
@@ -162,50 +163,78 @@ function ReelsView({ items }: { items: FeedItem[] }) {
       {videoItems.map((item) => (
         <div
           key={`${item.uri}-${item.cid}`}
-          className="relative h-[80vh] w-full flex items-center justify-center bg-black border-b border-border snap-start"
+          className="relative h-[100dvh] w-full snap-start snap-always"
         >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-white/30 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <p className="text-white/50 text-sm mt-2">Video content</p>
+          {/* Full-screen video player */}
+          <div className="absolute inset-0">
+            <BlueskyVideoPlayer item={item} variant="reels" autoPlay muted />
+          </div>
+
+          {/* Bottom overlay with author info */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 pb-12 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none">
+            <div className="flex items-center gap-3 pointer-events-auto">
+              <button
+                onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }}
+                className="flex items-center gap-3"
+              >
+                <div className="h-11 w-11 rounded-full overflow-hidden ring-2 ring-white/50 shrink-0">
+                  {item.author.avatar ? (
+                    <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-accent" />
+                  )}
+                </div>
+                <div className="text-left">
+                  <span className="text-white font-semibold text-[15px] block drop-shadow-lg">
+                    {item.author.displayName || item.author.handle}
+                  </span>
+                  <span className="text-white/70 text-sm drop-shadow-lg">
+                    @{item.author.handle}
+                  </span>
+                </div>
+              </button>
             </div>
+            {item.record.text && (
+              <p className="text-white/90 text-[15px] mt-3 line-clamp-2 drop-shadow-lg pointer-events-auto">
+                {item.record.text}
+              </p>
+            )}
           </div>
-          <div className="absolute bottom-4 left-4 right-16">
+
+          {/* Right side action bar */}
+          <div className="absolute bottom-24 right-4 flex flex-col items-center gap-5 z-10">
             <button
-              onClick={() => router.push(`/profile/${item.author.handle}`)}
-              className="flex items-center gap-2"
+              onClick={(e) => { e.stopPropagation(); /* like */ }}
+              className="flex flex-col items-center gap-1 text-white drop-shadow-lg"
+              aria-label="Like"
             >
-              <div className="h-10 w-10 rounded-full bg-accent overflow-hidden ring-2 ring-white/50">
-                {item.author.avatar && (
-                  <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
-                )}
-              </div>
-              <span className="text-white font-semibold text-sm drop-shadow-lg">
-                {item.author.displayName || item.author.handle}
-              </span>
-            </button>
-            <p className="text-white/80 text-sm mt-2 line-clamp-2 drop-shadow-lg">
-              {item.record.text}
-            </p>
-          </div>
-          <div className="absolute bottom-4 right-4 flex flex-col gap-4">
-            <button className="flex flex-col items-center gap-0.5 text-white" aria-label="Like">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 drop-shadow-lg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
-              <span className="text-xs">{item.likeCount}</span>
+              <span className="text-xs font-medium">{item.likeCount}</span>
             </button>
             <button
-              onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
-              className="flex flex-col items-center gap-0.5 text-white"
+              onClick={(e) => { e.stopPropagation(); router.push(`/feed/${encodeURIComponent(item.uri)}`); }}
+              className="flex flex-col items-center gap-1 text-white drop-shadow-lg"
               aria-label="Reply"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 drop-shadow-lg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <span className="text-xs">{item.replyCount}</span>
+              <span className="text-xs font-medium">{item.replyCount}</span>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }}
+              className="flex flex-col items-center gap-1 text-white drop-shadow-lg"
+              aria-label="Profile"
+            >
+              <div className="h-8 w-8 rounded-full overflow-hidden ring-2 ring-white/50">
+                {item.author.avatar ? (
+                  <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-accent" />
+                )}
+              </div>
             </button>
           </div>
         </div>

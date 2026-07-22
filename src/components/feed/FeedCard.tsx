@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/avatar';
+import { BlueskyVideoPlayer } from '@/components/feed/BlueskyVideoPlayer';
 import { useState, useRef, useEffect } from 'react';
 import { formatRelativeTime } from '@/lib/time';
 import type { FeedItem } from '@/types/atproto';
@@ -219,21 +220,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
 
           // Video
           if (t.includes('video')) {
-            const thumb = em.video?.thumbnail;
-            return (
-              <div className="mt-3 overflow-hidden rounded-2xl bg-black/40 relative">
-                {thumb && (
-                  <img src={thumb} alt="" className="w-full object-cover max-h-96" loading="lazy" />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-16 w-16 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            );
+            return <BlueskyVideoPlayer item={item} variant="inline" />;
           }
 
           // External link
