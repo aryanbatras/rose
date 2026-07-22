@@ -1,0 +1,131 @@
+import { BskyAgent } from '@atproto/api';
+
+/**
+ * Normalize a feed item from a custom feed to match our FeedItem structure.
+ */
+function normalizeFeedItem(item: any): any {
+  const post = item.post || item;
+  const record = post.record || {};
+  const embed = post.embed || record.embed;
+
+  return {
+    uri: post.uri,
+    cid: post.cid,
+    author: {
+      did: post.author.did,
+      handle: post.author.handle,
+      displayName: post.author.displayName,
+      avatar: post.author.avatar,
+    },
+    record: {
+      $type: record.$type || 'app.bsky.feed.post',
+      text: record.text || '',
+      createdAt: record.createdAt || post.indexedAt,
+      facets: record.facets,
+      embed,
+    },
+    indexedAt: post.indexedAt,
+    likeCount: post.likeCount || 0,
+    replyCount: post.replyCount || 0,
+    repostCount: post.repostCount || 0,
+    viewer: post.viewer,
+    labels: post.labels,
+    reason: item.reason,
+  };
+}
+
+/**
+ * Known popular Bluesky feeds that work out of the box.
+ * URI format: at://did:plc:xxx/app.bsky.feed.generator/name
+ */
+export const CURATED_FEEDS = [
+  {
+    uri: 'at://did:plc:tenurhgjptv3lcaqergxe2cj/app.bsky.feed.generator/whats-hot',
+    label: "What's Hot",
+    description: 'Trending posts across the network',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:tenurhgjptv3lcaqergxe2cj/app.bsky.feed.generator/divergent',
+    label: 'Popular With Friends',
+    description: 'Posts liked by people you follow',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:tenurhgjptv3lcaqergxe2cj/app.bsky.feed.generator/mutuals',
+    label: 'Mutuals Only',
+    description: 'Posts from people you follow who also follow you',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:tenurhgjptv3lcaqergxe2cj/app.bsky.feed.generator/only-posts',
+    label: 'Posts Only',
+    description: 'Hide reposts from your timeline',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:vpkhqoltc6mcef7kixq2nqjr/app.bsky.feed.generator/video',
+    label: 'Video Feeds',
+    description: 'Videos from across Bluesky',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:vpkhqoltc6mcef7kixq2nqjr/app.bsky.feed.generator/art',
+    label: 'Art & Design',
+    description: 'Creative and artistic posts',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:vpkhqoltc6mcef7kixq2nqjr/app.bsky.feed.generator/photography',
+    label: 'Photography',
+    description: 'Photo-focused posts from the community',
+    avatar: undefined,
+  },
+  {
+    uri: 'at://did:plc:vpkhqoltc6mcef7kixq2nqjr/app.bsky.feed.generator/tech',
+    label: 'Tech & Dev',
+    description: 'Technology and development discussions',
+    avatar: undefined,
+  },
+];
+
+/**
+ * Fetch metadata for multiple feed generators at once.
+ */
+export async function getFeedGeneratorsInfo(
+  agent: BskyAgent,
+  feedUris: string[]
+): Promise<Array<{ uri: string; label: string; description: string; avatar?: string }>> {
+  try {
+    const response = await agent.app.bsky.feed.getFeedGenerators({ feeds: feedUris });
+    return response.data.feeds.map((view: any) => ({
+      uri: view.uri,
+      label: view.displayName || view.uri.split('/').pop() || 'Custom Feed',
+      description: view.description || '',
+      avatar: view.avatar,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Get posts from a specific custom feed.
+ * Used to view a feed's content from the feed page.
+ */
+export async function getFeedPosts(
+  agent: BskyAgent,
+  feedUri: string,
+  cursor?: string,
+  limit = 30
+): Promise<{ items: any[]; cursor?: string }> {
+  const response = await agent.app.bsky.feed.getFeed({
+    feed: feedUri,
+    limit,
+    cursor,
+  });
+  return {
+    items: response.data.feed.map((item: any) => normalizeFeedItem(item)),
+    cursor: response.data.cursor,
+  };
+}
