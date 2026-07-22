@@ -8,7 +8,7 @@ import { Heart, MessageCircle, Play, X, ChevronDown } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
 /**
- * HLS video player component using hls.js.
+ * HLS video player using hls.js, falls back to native HLS on Safari.
  */
 function ReelVideo({ playlistUrl, thumbnail }: { playlistUrl: string; thumbnail?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -17,7 +17,6 @@ function ReelVideo({ playlistUrl, thumbnail }: { playlistUrl: string; thumbnail?
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !playlistUrl) return;
-
     let hls: any = null;
 
     const initHls = async () => {
@@ -60,6 +59,14 @@ function ReelVideo({ playlistUrl, thumbnail }: { playlistUrl: string; thumbnail?
   );
 }
 
+/** Check if a post has a video embed. */
+function isVideoPost(item: FeedItem): boolean {
+  const em = item.record?.embed;
+  if (!em) return false;
+  const t = em.$type || '';
+  return t.includes('video') || !!em.playlist || !!em.video?.playlist;
+}
+
 /** Feed source option for the dropdown */
 interface FeedOption {
   type: string;
@@ -68,10 +75,13 @@ interface FeedOption {
 }
 
 const PRESET_FEEDS: FeedOption[] = [
-  { type: 'discover', label: 'Discover' },
+  { type: 'all', label: 'All Sources' },
   { type: 'following', label: 'Following' },
   { type: 'trending', label: 'Trending' },
 ];
+
+const MAX_PAGES = 5;
+const SOURCE_TARGET = 15;
 
 export default function ReelsPage() {
   const router = useRouter();
@@ -82,7 +92,6 @@ export default function ReelsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [liking, setLiking] = useState<Set<string>>(new Set());
@@ -90,96 +99,155 @@ export default function ReelsPage() {
   // Feed picker state
   const [showFeedPicker, setShowFeedPicker] = useState(false);
   const [activeFeed, setActiveFeed] = useState<FeedOption>(PRESET_FEEDS[0]);
-  const cursorRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.replace('/login');
-  }, [isAuthenticated, authLoading, router]);
+  // Refs for pagination (avoid stale closures and infinite loops)
+  const cursorRef = useRef<Record<string, string | null>>({});
+  const hasMoreRef = useRef<Record<string, boolean>>({});
+  const fetchingRef = useRef(false);
+  const allVideosRef = useRef<FeedItem[]>([]);
 
-  // Fetch video posts from a specific feed source
-  const fetchVideos = useCallback(async (reset = false) => {
-    if (!isAuthenticated) return;
+  /**
+   * Fetch a single page from one feed source.
+   */
+  const fetchSourcePage = useCallback(async (
+    sourceType: string,
+    feedUri?: string,
+    cursor?: string,
+    limit = 50
+  ): Promise<{ items: FeedItem[]; cursor: string | null }> => {
+    if (!isAuthenticated) return { items: [], cursor: null };
+    let endpoint = `/api/feed?sourceType=${sourceType}&limit=${limit}`;
+    if (sourceType === 'custom' && feedUri) {
+      endpoint = `/api/feed?sourceType=custom&feedUri=${encodeURIComponent(feedUri)}&limit=${limit}`;
+    }
+    if (cursor) endpoint += `&cursor=${encodeURIComponent(cursor)}`;
+
+    try {
+      const res = await fetch(endpoint);
+      if (!res.ok) return { items: [], cursor: null };
+      const data = await res.json();
+      const items = (data.items || []).filter(isVideoPost);
+      return { items, cursor: data.cursor || null };
+    } catch {
+      return { items: [], cursor: null };
+    }
+  }, [isAuthenticated]);
+
+  /**
+   * Stable fetch function — uses refs for accumulation to avoid dependency cycles.
+   */
+  const fetchVideosRef = useRef<(reset: boolean) => Promise<void>>(async () => {});
+
+  fetchVideosRef.current = useCallback(async (reset: boolean) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+
     if (reset) {
       setLoading(true);
-      cursorRef.current = null;
+      cursorRef.current = {};
+      hasMoreRef.current = {};
+      allVideosRef.current = [];
     } else {
       setLoadingMore(true);
     }
 
+    const sourceKey = activeFeed.type + (activeFeed.uri || '');
+    const safeCur = reset ? undefined : (cursorRef.current[sourceKey] || undefined);
+
     try {
-      let endpoint = `/api/feed?sourceType=${activeFeed.type}&limit=20`;
-      if (activeFeed.type === 'custom' && activeFeed.uri) {
-        endpoint = `/api/feed?sourceType=custom&feedUri=${encodeURIComponent(activeFeed.uri)}&limit=20`;
-      }
-      if (cursorRef.current && !reset) {
-        endpoint += `&cursor=${encodeURIComponent(cursorRef.current)}`;
-      }
+      if (activeFeed.type === 'all') {
+        const sources = [
+          { type: 'discover' as const },
+          { type: 'following' as const },
+        ];
 
-      const res = await fetch(endpoint);
-      if (!res.ok) {
-        if (reset) setReels([]);
-        setLoading(false);
-        setLoadingMore(false);
-        return;
-      }
+        let anyHasMore = false;
 
-      const data = await res.json();
-      const items: FeedItem[] = (data.items || []).filter((p: any) => {
-        const em = p.record?.embed;
-        if (!em) return false;
-        return (em.$type || '').includes('video') || !!em.playlist;
-      });
+        for (const source of sources) {
+          const sk = source.type;
+          let srcCursor: string | undefined = reset ? undefined : (cursorRef.current[sk] || undefined);
+          const accKey = 'all_' + sk;
+          let pageCount = 0;
+          let sourceCount = 0;
 
-      cursorRef.current = data.cursor || null;
-      setHasMore(!!data.cursor && items.length > 0);
+          while (pageCount < MAX_PAGES) {
+            const { items, cursor } = await fetchSourcePage(source.type, undefined, srcCursor);
+            const newItems = items.filter(
+              (v) => !allVideosRef.current.some((x) => x.uri === v.uri)
+            );
+            allVideosRef.current.push(...newItems);
+            sourceCount += newItems.length;
+            srcCursor = cursor ?? undefined;
+            cursorRef.current[accKey] = cursor;
+            pageCount++;
 
-      if (reset) {
-        setReels(items);
+            if (!cursor || sourceCount >= SOURCE_TARGET) break;
+          }
+          if (cursorRef.current[accKey]) anyHasMore = true;
+        }
+
+        hasMoreRef.current[sourceKey] = anyHasMore;
+        setReels([...allVideosRef.current]);
       } else {
-        setReels((prev) => {
-          const seen = new Set(prev.map((v) => v.uri));
-          const newItems = items.filter((v) => !seen.has(v.uri));
-          return [...prev, ...newItems];
-        });
+        let srcCursor: string | undefined = safeCur;
+        let pageCount = 0;
+
+        while (pageCount < MAX_PAGES) {
+          const { items, cursor } = await fetchSourcePage(activeFeed.type, activeFeed.uri, srcCursor);
+          const newItems = items.filter(
+            (v) => !allVideosRef.current.some((x) => x.uri === v.uri)
+          );
+          allVideosRef.current.push(...newItems);
+          srcCursor = cursor ?? undefined;
+          cursorRef.current[sourceKey] = cursor;
+          pageCount++;
+
+          if (!cursor || allVideosRef.current.length >= 30) break;
+        }
+
+        hasMoreRef.current[sourceKey] = !!cursorRef.current[sourceKey];
+        setReels([...allVideosRef.current]);
       }
     } catch {
       if (reset) setReels([]);
     }
+
     setLoading(false);
     setLoadingMore(false);
-  }, [isAuthenticated, activeFeed]);
+    fetchingRef.current = false;
+  }, [isAuthenticated, activeFeed, fetchSourcePage]);
 
   // Fetch when feed changes
   useEffect(() => {
-    if (isAuthenticated) fetchVideos(true);
-  }, [isAuthenticated, fetchVideos]);
+    if (isAuthenticated) fetchVideosRef.current!(true);
+  }, [isAuthenticated, activeFeed]);
 
-  // Load more when reaching the last few reels
+  // Load more when approaching the last reel (stable, no dependency cycles)
   useEffect(() => {
-    if (!hasMore || loadingMore || loading || reels.length === 0) return;
-    if (currentIndex >= reels.length - 3) {
-      fetchVideos(false);
-    }
-  }, [currentIndex, hasMore, loadingMore, loading, reels.length, fetchVideos]);
+    if (loading || loadingMore || reels.length === 0 || fetchingRef.current) return;
+    const sk = activeFeed.type + (activeFeed.uri || '');
+    if (!hasMoreRef.current[sk]) return;
+    if (currentIndex < reels.length - 3) return;
+    fetchVideosRef.current!(false);
+  }, [currentIndex, loading, loadingMore, reels.length, activeFeed]);
 
-  // Track scroll position to update current index and play/pause
+  // Track scroll position for play/pause
   useEffect(() => {
     const container = containerRef.current;
     if (!container || reels.length === 0) return;
 
     const handleScroll = () => {
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-
       scrollTimeoutRef.current = setTimeout(() => {
         const videos = container.querySelectorAll('video');
         videos.forEach((v) => v.pause());
 
-        const childNodes = Array.from(container.children) as HTMLElement[];
-        for (let i = 0; i < childNodes.length; i++) {
-          const rect = childNodes[i].getBoundingClientRect();
+        const children = Array.from(container.children) as HTMLElement[];
+        for (let i = 0; i < children.length; i++) {
+          const rect = children[i].getBoundingClientRect();
           if (rect.top >= 0 && rect.top < window.innerHeight / 2) {
             setCurrentIndex(i);
-            const video = childNodes[i].querySelector('video');
+            const video = children[i].querySelector('video');
             if (video) {
               video.muted = false;
               video.play().catch(() => {});
@@ -197,70 +265,61 @@ export default function ReelsPage() {
     };
   }, [reels.length]);
 
-  // Auto-scroll to first reel when loaded
+  // Auto-scroll to first reel on load/feed change
   useEffect(() => {
     if (reels.length > 0 && containerRef.current) {
-      const firstReel = containerRef.current.children[0] as HTMLElement;
-      if (firstReel) {
-        firstReel.scrollIntoView({ block: 'start' });
-      }
+      const first = containerRef.current.children[0] as HTMLElement;
+      if (first) first.scrollIntoView({ block: 'start' });
     }
   }, [reels.length]);
 
   // Like/unlike toggle
-  const handleLikeToggle = useCallback(
-    async (item: FeedItem) => {
-      if (liking.has(item.uri)) return;
-      setLiking((prev) => new Set(prev).add(item.uri));
+  const handleLikeToggle = useCallback(async (item: FeedItem) => {
+    if (liking.has(item.uri)) return;
+    setLiking((prev) => new Set(prev).add(item.uri));
 
-      try {
-        if (item.viewer?.like) {
-          await fetch('/api/interact/unlike', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ likeUri: item.viewer.like }),
-          });
-          item.likeCount = Math.max(0, (item.likeCount || 0) - 1);
-          if (item.viewer) delete item.viewer.like;
-        } else {
-          await fetch('/api/interact/like', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uri: item.uri, cid: item.cid }),
-          });
-          item.likeCount = (item.likeCount || 0) + 1;
-          (item.viewer ??= {} as any).like = 'pending';
-        }
-        setReels((prev) => [...prev]);
-      } catch (e) {
-        console.error('Like toggle failed:', e);
-      } finally {
-        setLiking((prev) => {
-          const next = new Set(prev);
-          next.delete(item.uri);
-          return next;
+    try {
+      if (item.viewer?.like) {
+        await fetch('/api/interact/unlike', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ likeUri: item.viewer.like }),
         });
+        item.likeCount = Math.max(0, (item.likeCount || 0) - 1);
+        if (item.viewer) delete item.viewer.like;
+      } else {
+        await fetch('/api/interact/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uri: item.uri, cid: item.cid }),
+        });
+        item.likeCount = (item.likeCount || 0) + 1;
+        (item.viewer ??= {} as any).like = 'pending';
       }
-    },
-    [liking]
-  );
+      setReels((prev) => [...prev]);
+    } catch (e) {
+      console.error('Like failed:', e);
+    } finally {
+      setLiking((prev) => {
+        const next = new Set(prev);
+        next.delete(item.uri);
+        return next;
+      });
+    }
+  }, [liking]);
 
   // Change feed source
   const handleSelectFeed = useCallback((feed: FeedOption) => {
     setActiveFeed(feed);
-    cursorRef.current = null;
+    cursorRef.current = {};
+    allVideosRef.current = [];
     setCurrentIndex(0);
     setShowFeedPicker(false);
   }, []);
 
-  // Build all feed options: presets + saved feeds
   const allFeedOptions: FeedOption[] = [
     ...PRESET_FEEDS,
-    ...savedFeeds.map((f) => ({
-      type: 'custom',
-      uri: f.uri,
-      label: f.label,
-    })),
+    ...savedFeeds.map((f) => ({ type: 'custom', uri: f.uri, label: f.label })),
   ];
 
   if (authLoading) {
@@ -273,7 +332,7 @@ export default function ReelsPage() {
 
   return (
     <div className="fixed inset-0 z-50" style={{ background: 'oklch(0.04 0.003 80)' }}>
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 pt-4">
         <button
           onClick={() => router.back()}
@@ -283,7 +342,6 @@ export default function ReelsPage() {
           <X className="h-5 w-5" strokeWidth={2.5} />
         </button>
 
-        {/* Feed picker button */}
         <div className="relative">
           <button
             onClick={() => setShowFeedPicker(!showFeedPicker)}
@@ -307,15 +365,13 @@ export default function ReelsPage() {
                         : 'text-white/60 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    {feed.type === 'discover' && <span className="text-xs">🌐</span>}
+                    {feed.type === 'all' && <span className="text-xs">🌐</span>}
                     {feed.type === 'following' && <span className="text-xs">👤</span>}
                     {feed.type === 'trending' && <span className="text-xs">🔥</span>}
                     {feed.type === 'custom' && <span className="text-xs">📋</span>}
                     <span className="truncate">{feed.label}</span>
                     {activeFeed.type === feed.type && activeFeed.label === feed.label && (
-                      <span className="ml-auto">
-                        <div className="h-2 w-2 rounded-full bg-brand" />
-                      </span>
+                      <span className="ml-auto"><div className="h-2 w-2 rounded-full bg-brand" /></span>
                     )}
                   </button>
                 ))}
@@ -329,7 +385,7 @@ export default function ReelsPage() {
         <div className="flex h-full items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-white/40" />
-            <p className="text-sm text-white/30 font-medium">Loading reels...</p>
+            <p className="text-sm text-white/30 font-medium">Finding reels...</p>
           </div>
         </div>
       ) : reels.length === 0 ? (
@@ -337,15 +393,15 @@ export default function ReelsPage() {
           <div className="h-20 w-20 rounded-2xl bg-white/5 flex items-center justify-center mb-5">
             <Play className="h-10 w-10 text-white/20" strokeWidth={1.5} />
           </div>
-          <p className="text-lg font-medium text-white/60">No reels yet</p>
-          <p className="text-sm text-white/30 mt-1.5 max-w-xs">
-            No videos found in &ldquo;{activeFeed.label}&rdquo;. Try a different feed.
+          <p className="text-lg font-medium text-white/60">No reels found</p>
+          <p className="text-sm text-white/30 mt-1.5 max-w-xs leading-relaxed">
+            Video posts are still rare on Bluesky. Try switching to &ldquo;All Sources&rdquo; or a different feed.
           </p>
           <button
-            onClick={() => router.push('/feed')}
+            onClick={() => handleSelectFeed(PRESET_FEEDS[0])}
             className="mt-7 px-7 py-2.5 rounded-2xl bg-white/10 text-white/90 text-sm font-semibold hover:bg-white/20 transition-all backdrop-blur-sm active:scale-95"
           >
-            Browse Feed
+            Try All Sources
           </button>
         </div>
       ) : (
@@ -355,12 +411,12 @@ export default function ReelsPage() {
             className="h-full w-full overflow-y-auto snap-y snap-mandatory scrollbar-none"
           >
             {reels.map((item, index) => {
-              const em = item.record.embed;
+              const em = item.record?.embed;
               const playlistUrl = em?.playlist || em?.video?.playlist || '';
               const thumbnail = em?.thumbnail || em?.video?.thumbnail || '';
-              const caption = item.record.text || '';
-              const displayName = item.author.displayName || item.author.handle;
-              const handle = item.author.handle;
+              const caption = item.record?.text || '';
+              const displayName = item.author?.displayName || item.author?.handle || '';
+              const handle = item.author?.handle || '';
               const isLiked = !!item.viewer?.like;
 
               return (
@@ -396,7 +452,7 @@ export default function ReelsPage() {
                         className="h-9 w-9 rounded-full overflow-hidden shrink-0 shadow-lg"
                         style={{ boxShadow: '0 0 0 2px rgba(255,255,255,0.3)' }}
                       >
-                        {item.author.avatar ? (
+                        {item.author?.avatar ? (
                           <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <div className="h-full w-full bg-white/20 flex items-center justify-center text-sm font-semibold text-white">
@@ -411,7 +467,6 @@ export default function ReelsPage() {
                         {displayName}
                       </button>
                     </div>
-
                     {caption && (
                       <p className="text-sm text-white/80 line-clamp-2 leading-relaxed drop-shadow-sm">{caption}</p>
                     )}
@@ -473,7 +528,6 @@ export default function ReelsPage() {
               );
             })}
 
-            {/* Loading more indicator */}
             {loadingMore && (
               <div className="h-16 w-full snap-start flex items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/40" />
@@ -481,8 +535,7 @@ export default function ReelsPage() {
             )}
           </div>
 
-          {/* Counter */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-[10px] font-medium text-white/40 bg-black/20 px-2.5 py-1 rounded-full backdrop-blur-sm">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 text-xs font-medium text-white/50 bg-black/20 px-3 py-1 rounded-full backdrop-blur-sm">
             {currentIndex + 1} / {reels.length}
           </div>
         </>

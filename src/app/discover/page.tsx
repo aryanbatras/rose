@@ -1,15 +1,14 @@
 'use client';
 
-'use client';
-
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSuggestions } from '@/hooks/useProfile';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
-
+import { useDebouncedSearch } from '@/hooks/useSearch';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
+import { Search, LayoutGrid, Users, Bookmark, Sparkles } from 'lucide-react';
 
 interface FeedInfo {
   uri: string;
@@ -20,10 +19,9 @@ interface FeedInfo {
   creatorHandle?: string;
   creatorDisplayName?: string;
   likeCount?: number;
-  category?: string;
 }
 
-type Tab = 'browse' | 'people' | 'saved';
+type Tab = 'discover' | 'people' | 'saved';
 
 export default function DiscoverPage() {
   const router = useRouter();
@@ -31,47 +29,41 @@ export default function DiscoverPage() {
   const { data: suggestions, isLoading: suggestionsLoading } = useSuggestions();
   const { savedFeeds, addSavedFeed, removeSavedFeed, setActiveSource } = useFeedSourceStore();
 
-  const [activeTab, setActiveTab] = useState<Tab>('browse');
-  const [curatedFeeds, setCuratedFeeds] = useState<FeedInfo[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [feedsLoading, setFeedsLoading] = useState(true);
-  const [feedsError, setFeedsError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('discover');
+  const { query, setQuery, debouncedQuery } = useDebouncedSearch(300);
+  const [searchResults, setSearchResults] = useState<FeedInfo[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const searchCursorRef = useRef<string | null>(null);
 
-  // Fetch curated feeds
+  // When debounced query changes, fetch from Bluesky popular feeds API
   useEffect(() => {
     if (!isAuthenticated) return;
-    async function load() {
-      setFeedsLoading(true);
-      setFeedsError(null);
+    if (!debouncedQuery.trim()) {
+      setSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
+    async function searchFeeds() {
+      setSearching(true);
+      setHasSearched(true);
+      searchCursorRef.current = null;
       try {
-        const cat = selectedCategory ? `&category=${encodeURIComponent(selectedCategory)}` : '';
-        const res = await fetch(`/api/feed/generators?mode=curated&limit=50${cat}`);
+        const res = await fetch(`/api/feed/generators?mode=popular&query=${encodeURIComponent(debouncedQuery)}&limit=30`);
         if (res.ok) {
           const data = await res.json();
-          setCuratedFeeds(data.feeds || []);
+          setSearchResults(data.feeds || []);
+          searchCursorRef.current = data.cursor || null;
         } else {
-          setFeedsError('Failed to load feeds');
+          setSearchResults([]);
         }
       } catch {
-        setFeedsError('Failed to load feeds. Check your connection.');
+        setSearchResults([]);
       }
-      setFeedsLoading(false);
+      setSearching(false);
     }
-    load();
-  }, [isAuthenticated, selectedCategory]);
-
-  // Filter feeds by search query
-  const filteredFeeds = curatedFeeds.filter((feed) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      feed.label.toLowerCase().includes(q) ||
-      (feed.description || '').toLowerCase().includes(q) ||
-      (feed.creatorHandle || '').toLowerCase().includes(q) ||
-      (feed.category || '').toLowerCase().includes(q)
-    );
-  });
+    searchFeeds();
+  }, [isAuthenticated, debouncedQuery]);
 
   // Auth redirect
   useEffect(() => {
@@ -86,7 +78,7 @@ export default function DiscoverPage() {
   const handleSubscribe = useCallback(
     (feed: FeedInfo) => {
       addSavedFeed({ type: 'custom', uri: feed.uri, label: feed.label });
-      toast.success(`Subscribed to "${feed.label}"`);
+      toast.success(`Added "${feed.label}"`);
     },
     [addSavedFeed]
   );
@@ -94,7 +86,7 @@ export default function DiscoverPage() {
   const handleUnsubscribe = useCallback(
     (uri: string) => {
       removeSavedFeed(uri);
-      toast.success('Feed unsubscribed');
+      toast.success('Feed removed');
     },
     [removeSavedFeed]
   );
@@ -109,132 +101,94 @@ export default function DiscoverPage() {
 
   return (
     <div className="min-h-[100dvh] pb-20">
-      {/* ─── Header ───────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-surface-base/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-40 bg-surface-base/80 backdrop-blur-lg border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <h1 className="text-lg font-bold font-heading text-foreground">Discover</h1>
-          <button
-            onClick={() => router.push('/search')}
-            className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label="Search"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex px-4 gap-4">
-          {(['browse', 'people', 'saved'] as Tab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors capitalize ${
-                activeTab === tab
-                  ? 'text-brand border-brand'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              {tab === 'browse' ? 'Browse Feeds' : tab === 'saved' ? 'My Feeds' : tab}
-            </button>
-          ))}
+          {(['discover', 'people', 'saved'] as Tab[]).map((tab) => {
+            const icons = { discover: Search, people: Users, saved: Bookmark };
+            const Icon = icons[tab];
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors capitalize inline-flex items-center gap-1.5 ${
+                  activeTab === tab
+                    ? 'text-brand border-brand'
+                    : 'text-muted-foreground border-transparent hover:text-foreground'
+                }`}
+              >
+                <Icon className="h-4 w-4" strokeWidth={1.5} />
+                {tab === 'discover' ? 'Search Feeds' : tab}
+              </button>
+            );
+          })}
         </div>
       </header>
 
       <main>
-        {/* ─── BROWSE FEEDS TAB ──────────────────────── */}
-        {activeTab === 'browse' && (
-          <>
-
-
-            {/* Inline search bar */}
-            <div className="px-4 pt-4">
-              <div className="relative">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+        {/* ─── SEARCH FEEDS TAB ──────────────────────── */}
+        {activeTab === 'discover' && (
+          <section className="px-4 pt-4">
+            {/* Search input — calls Bluesky API to search 50,000+ feeds */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" strokeWidth={2} />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search 50,000+ feeds..."
+                className="w-full rounded-2xl border border-border bg-surface-elevated/80 px-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/60 transition-all"
+                autoFocus
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
+                  aria-label="Clear"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search feeds by name, description, or creator..."
-                  className="w-full rounded-2xl border border-border bg-surface-elevated/80 px-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand/60 transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground transition-colors"
-                    aria-label="Clear search"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
 
-            {/* Curated feeds */}
-            <section className="px-4 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-bold text-foreground">
-                  {selectedCategory || 'All Feeds'}
-                </h2>
-                <span className="text-xs text-muted-foreground">
-                  {searchQuery ? `${filteredFeeds.length} of ${curatedFeeds.length}` : `${curatedFeeds.length} feed${curatedFeeds.length !== 1 ? 's' : ''}`}
-                </span>
-              </div>
-
-              {feedsLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3">
-                      <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                        <div className="h-3 w-48 animate-pulse rounded bg-muted" />
-                      </div>
+            {searching ? (
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3">
+                    <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                      <div className="h-3 w-48 animate-pulse rounded bg-muted" />
                     </div>
-                  ))}
-                </div>
-              ) : feedsError ? (
-                <div className="py-12 text-center">
-                  <WarningIcon className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                  <p className="text-sm text-muted-foreground">{feedsError}</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="mt-3 px-4 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover transition-colors"
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : searchQuery && filteredFeeds.length === 0 ? (
-                <div className="py-12 text-center">
-                  <p className="text-sm text-muted-foreground">No feeds match &ldquo;{searchQuery}&rdquo;</p>
-                </div>
-              ) : !searchQuery && curatedFeeds.length === 0 ? (
-                <div className="py-12 text-center">
-                  <p className="text-sm text-muted-foreground">No feeds available</p>
-                </div>
-              ) : (
-                <FeedList
-                  feeds={searchQuery ? filteredFeeds : curatedFeeds}
-                  isSubscribed={isSubscribed}
-                  onSubscribe={handleSubscribe}
-                  onUnsubscribe={handleUnsubscribe}
-                  showCategory={!selectedCategory}
-                />
-              )}
-            </section>
-          </>
+                  </div>
+                ))}
+              </div>
+            ) : hasSearched && searchResults.length === 0 ? (
+              <div className="py-16 text-center">
+                <Search className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
+                <p className="text-muted-foreground">No feeds found for &ldquo;{debouncedQuery}&rdquo;</p>
+                <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
+              </div>
+            ) : !query ? (
+              <div className="py-16 text-center">
+                <Sparkles className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
+                <p className="text-muted-foreground">Search 50,000+ Bluesky feeds</p>
+                <p className="text-sm text-muted-foreground mt-1">Type above to find feeds by name, description, or creator</p>
+              </div>
+            ) : (
+              <FeedList
+                feeds={searchResults}
+                isSubscribed={isSubscribed}
+                onSubscribe={handleSubscribe}
+                onUnsubscribe={handleUnsubscribe}
+              />
+            )}
+          </section>
         )}
 
         {/* ─── PEOPLE TAB ──────────────────────────────── */}
@@ -255,10 +209,9 @@ export default function DiscoverPage() {
               </div>
             ) : !suggestions?.length ? (
               <div className="py-12 text-center">
+                <Users className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
                 <p className="text-muted-foreground">No suggestions yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Follow more users to get better suggestions
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Follow more users to get better suggestions</p>
               </div>
             ) : (
               <div className="space-y-1">
@@ -270,14 +223,10 @@ export default function DiscoverPage() {
                   >
                     <Avatar src={s.avatar} alt={s.displayName || s.handle} size="md" />
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-semibold text-foreground">
-                        {s.displayName || s.handle}
-                      </p>
+                      <p className="text-sm font-semibold text-foreground">{s.displayName || s.handle}</p>
                       <p className="text-xs text-muted-foreground">@{s.handle}</p>
                     </div>
-                    <div className="text-xs text-muted-foreground tabular-nums">
-                      {s.count} mutual
-                    </div>
+                    <div className="text-xs text-muted-foreground tabular-nums">{s.count} mutual</div>
                   </button>
                 ))}
               </div>
@@ -293,16 +242,14 @@ export default function DiscoverPage() {
             </h2>
             {savedFeeds.length === 0 ? (
               <div className="py-16 text-center">
-                <SavedFeedsIcon className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                <Bookmark className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" strokeWidth={1.5} />
                 <p className="text-muted-foreground">No feeds saved yet</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Browse categories or search to find feeds you love
-                </p>
+                <p className="text-sm text-muted-foreground mt-1">Search and add feeds you love</p>
                 <button
-                  onClick={() => setActiveTab('browse')}
-                  className="mt-4 px-6 py-2.5 rounded-xl bg-brand text-black text-sm font-semibold hover:bg-brand-hover transition-colors"
+                  onClick={() => setActiveTab('discover')}
+                  className="mt-4 px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors"
                 >
-                  Browse Feeds
+                  Search Feeds
                 </button>
               </div>
             ) : (
@@ -312,8 +259,8 @@ export default function DiscoverPage() {
                     key={feed.uri}
                     className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent/30 transition-colors"
                   >
-                    <div className="h-10 w-10 rounded-xl bg-blue/15 flex items-center justify-center shrink-0">
-                      <SavedFeedsIcon className="h-5 w-5 text-blue" />
+                    <div className="h-10 w-10 rounded-xl bg-brand/15 flex items-center justify-center shrink-0">
+                      <LayoutGrid className="h-5 w-5 text-brand" strokeWidth={1.5} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground">{feed.label}</p>
@@ -325,7 +272,7 @@ export default function DiscoverPage() {
                           setActiveSource(feed);
                           router.push('/feed');
                         }}
-                        className="px-4 py-1.5 rounded-full bg-brand text-black text-xs font-semibold hover:bg-brand-hover transition-colors"
+                        className="px-4 py-1.5 rounded-full bg-brand text-white text-xs font-semibold hover:bg-brand-hover transition-colors"
                       >
                         View
                       </button>
@@ -350,44 +297,17 @@ export default function DiscoverPage() {
   );
 }
 
-// ─── SVG Icon Components ────────────────────────────────────────
-function FeedIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-    </svg>
-  );
-}
-
-function WarningIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-    </svg>
-  );
-}
-
-function SavedFeedsIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-    </svg>
-  );
-}
-
-// ─── Shared Feed List Component ─────────────────────────────────
+// ─── Feed List ──────────────────────────────────────────────────
 function FeedList({
   feeds,
   isSubscribed,
   onSubscribe,
   onUnsubscribe,
-  showCategory = false,
 }: {
   feeds: FeedInfo[];
   isSubscribed: (uri: string) => boolean;
   onSubscribe: (feed: FeedInfo) => void;
   onUnsubscribe: (uri: string) => void;
-  showCategory?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -406,7 +326,7 @@ function FeedList({
               />
             ) : (
               <div className="h-11 w-11 rounded-xl bg-brand/15 flex items-center justify-center shrink-0 group-hover:bg-brand/20 transition-colors">
-                <FeedIcon />
+                <LayoutGrid className="h-5 w-5 text-brand" strokeWidth={1.5} />
               </div>
             )}
 
@@ -425,11 +345,6 @@ function FeedList({
               <p className="text-xs text-muted-foreground truncate leading-relaxed">
                 {feed.description || (feed.creatorHandle ? `by @${feed.creatorHandle}` : '')}
               </p>
-              {feed.category && showCategory && (
-                <span className="text-[10px] text-muted-foreground/60 mt-0.5 block">
-                  {feed.category}
-                </span>
-              )}
             </div>
 
             {subbed ? (
@@ -453,4 +368,3 @@ function FeedList({
     </div>
   );
 }
-

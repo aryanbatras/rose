@@ -12,7 +12,7 @@ import {
   Bell,
   LayoutGrid,
   Users,
-  Sparkles,
+  Zap,
   Bookmark,
   Settings,
   Play,
@@ -48,7 +48,7 @@ function NavIcon({ icon, isActive }: { icon: string; isActive: boolean }) {
     case 'feeds': return <LayoutGrid className={className} />;
     case 'reels': return <Play className={className} />;
     case 'groups': return <Users className={className} />;
-    case 'spells': return <Sparkles className={className} />;
+    case 'spells': return <Zap className={className} />;
     case 'bookmarks': return <BookmarksIcon />;
     case 'settings': return <Settings className={className} />;
     default: return <Home className={className} />;

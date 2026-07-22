@@ -5,7 +5,36 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSpellStore } from '@/stores/spell-store';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, Zap, Droplets, MessageSquareOff, BarChart3, Compass, UserX, RefreshCcw } from 'lucide-react';
+import type { SpellEffectType } from '@/types/spells';
+
+/** Map each spell effect to a Lucide icon component. */
+function effectIcon(type: SpellEffectType) {
+  const icons: Record<string, React.ReactNode> = {
+    hide_avatar: <Eye className="h-4 w-4" strokeWidth={1.5} />,
+    hide_display_name: <EyeOff className="h-4 w-4" strokeWidth={1.5} />,
+    hide_handle: <UserX className="h-4 w-4" strokeWidth={1.5} />,
+    hide_header: <EyeOff className="h-4 w-4" strokeWidth={1.5} />,
+    hide_repost_reason: <RefreshCcw className="h-4 w-4" strokeWidth={1.5} />,
+    hide_engagement_metrics: <BarChart3 className="h-4 w-4" strokeWidth={1.5} />,
+    hide_compose: <Compass className="h-4 w-4" strokeWidth={1.5} />,
+    hide_search_nav: <Compass className="h-4 w-4" strokeWidth={1.5} />,
+    hide_feeds_nav: <Compass className="h-4 w-4" strokeWidth={1.5} />,
+    hide_profile_nav: <UserX className="h-4 w-4" strokeWidth={1.5} />,
+    disable_like: <Lock className="h-4 w-4" strokeWidth={1.5} />,
+    disable_reply: <MessageSquareOff className="h-4 w-4" strokeWidth={1.5} />,
+    disable_repost: <RefreshCcw className="h-4 w-4" strokeWidth={1.5} />,
+    show_reminder: <Droplets className="h-4 w-4" strokeWidth={1.5} />,
+    lockout: <Lock className="h-4 w-4" strokeWidth={1.5} />,
+    hide_all_interactions: <EyeOff className="h-4 w-4" strokeWidth={1.5} />,
+  };
+  return icons[type] || <Zap className="h-4 w-4" strokeWidth={1.5} />;
+}
+
+/** Main icon for a spell — based on its primary effect. */
+function spellMainIcon(effects: { type: SpellEffectType }[]) {
+  return effectIcon(effects[0]?.type || 'lockout');
+}
 
 export default function SpellsPage() {
   const router = useRouter();
@@ -61,7 +90,7 @@ export default function SpellsPage() {
           <section className="px-4 pt-5">
             <h2 className="text-base font-bold text-foreground mb-1">Your Spells</h2>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-              Cast a spell to make it active. Dormant spells stay in your book but don&apos;t take effect.
+              Cast a spell to make it active.
             </p>
             <div className="space-y-3">
               {learnedSpells.map((spell) => {
@@ -73,21 +102,17 @@ export default function SpellsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className={`rounded-2xl transition-all ${
                       isCast
-                        ? 'bg-brand-muted ring-1 ring-brand/30'
-                        : 'bg-surface-elevated/60 ring-1 ring-border/60'
+                        ? 'bg-brand-muted'
+                        : 'bg-surface-elevated/60'
                     }`}
                   >
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2.5">
-                            <div className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 ${
-                              isCast ? 'bg-brand/15' : 'bg-accent'
-                            }`}>
-                              <Sparkles className={`h-4 w-4 ${
-                                isCast ? 'text-brand' : 'text-muted-foreground'
-                              }`} strokeWidth={1.5} />
-                            </div>
+                            <span className={`${isCast ? 'text-brand' : 'text-muted-foreground'}`}>
+                              {spellMainIcon(spell.effects)}
+                            </span>
                             <h3 className="text-sm font-semibold text-foreground">{spell.name}</h3>
                             {isCast && (
                               <span className="px-2 py-0.5 rounded-full bg-brand/15 text-[10px] font-semibold text-brand uppercase tracking-wider">
@@ -119,8 +144,9 @@ export default function SpellsPage() {
                         {spell.effects.map((effect) => (
                           <span
                             key={effect.type}
-                            className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-medium text-muted-foreground"
+                            className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-medium text-muted-foreground inline-flex items-center gap-1"
                           >
+                            {effectIcon(effect.type)}
                             {effectLabel(effect.type)}
                           </span>
                         ))}
@@ -133,16 +159,6 @@ export default function SpellsPage() {
                         Remove from spell book
                       </button>
                     </div>
-
-                    {isCast && spell.condition.type !== 'always' && (
-                      <div className="mx-4 pb-4">
-                        <div className="px-3 py-2 rounded-xl bg-accent/40">
-                          <p className="text-[11px] text-muted-foreground">
-                            {conditionDescription(spell.condition)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
                   </motion.div>
                 );
               })}
@@ -153,12 +169,12 @@ export default function SpellsPage() {
         {learnedSpells.length === 0 && (
           <section className="px-4 pt-10 text-center">
             <div className="py-8">
-              <div className="h-16 w-16 mx-auto rounded-2xl bg-brand/8 flex items-center justify-center mb-4">
-                <Sparkles className="h-7 w-7 text-brand/40" strokeWidth={1.5} />
+              <div className="mb-4 flex justify-center">
+                <Zap className="h-8 w-8 text-brand/40" strokeWidth={1.5} />
               </div>
               <h2 className="text-base font-bold text-foreground mb-1.5">No spells yet</h2>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
-                Browse the spells below to learn and cast them to customize your experience.
+                Browse the spells below to learn and customize your Rose experience.
               </p>
             </div>
           </section>
@@ -167,7 +183,7 @@ export default function SpellsPage() {
         <section className="px-4 pt-10">
           <h2 className="text-base font-bold text-foreground mb-1">Discover Spells</h2>
           <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-            Learn a spell to add it to your book and customize your Rose experience.
+            Learn a spell to add it to your book.
           </p>
 
           {discoverableSpells.length === 0 ? (
@@ -184,14 +200,14 @@ export default function SpellsPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="rounded-2xl bg-surface-elevated/50 ring-1 ring-border/60 p-4"
+                  className="rounded-2xl bg-surface-elevated/50 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-xl bg-accent flex items-center justify-center shrink-0">
-                          <Sparkles className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
-                        </div>
+                        <span className="text-muted-foreground">
+                          {spellMainIcon(spell.effects)}
+                        </span>
                         <h3 className="text-sm font-semibold text-foreground">{spell.name}</h3>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{spell.description}</p>
@@ -200,29 +216,12 @@ export default function SpellsPage() {
                         {spell.effects.map((effect) => (
                           <span
                             key={effect.type}
-                            className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-medium text-muted-foreground"
+                            className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-medium text-muted-foreground inline-flex items-center gap-1"
                           >
+                            {effectIcon(effect.type)}
                             {effectLabel(effect.type)}
                           </span>
                         ))}
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-2.5 text-[11px] text-muted-foreground">
-                        {spell.condition.type !== 'always' && (
-                          <span>{conditionDescription(spell.condition)}</span>
-                        )}
-                        {spell.author && (
-                          <>
-                            <span>·</span>
-                            <span>{spell.author}</span>
-                          </>
-                        )}
-                        {spell.casts !== undefined && (
-                          <>
-                            <span>·</span>
-                            <span>{spell.casts} cast{spell.casts !== 1 ? 's' : ''}</span>
-                          </>
-                        )}
                       </div>
                     </div>
 
@@ -263,19 +262,4 @@ function effectLabel(type: string): string {
     hide_all_interactions: 'Hide All Actions',
   };
   return labels[type] || type.replace(/_/g, ' ');
-}
-
-function conditionDescription(condition: any): string {
-  switch (condition.type) {
-    case 'time_range':
-      return `${String(condition.startHour).padStart(2, '0')}:00 – ${String(condition.endHour).padStart(2, '0')}:00`;
-    case 'session_duration':
-      return `After ${condition.minutes} min`;
-    case 'daily_count':
-      return `${condition.count}+ ${condition.actionType} today`;
-    case 'interval':
-      return `Every ${condition.intervalMinutes} min`;
-    default:
-      return '';
-  }
 }
