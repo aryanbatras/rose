@@ -227,10 +227,10 @@ function ReelsView({ items }: { items: FeedItem[] }) {
 export default function FeedPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, session } = useAuth();
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useFeed();
+  const { activeSource } = useFeedSourceStore();
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = useFeed(activeSource);
   const { mode } = useViewModeStore();
   const { content, mute } = useFilterStore();
-  const { activeSource } = useFeedSourceStore();
   const isTrending = activeSource?.type === 'trending';
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 

@@ -150,6 +150,22 @@ export async function getLikes(
   };
 }
 
+/**
+ * Fetch posts from a custom feed generator.
+ */
+export async function getCustomFeed(
+  agent: BskyAgent,
+  feedUri: string,
+  cursor?: string,
+  limit = 30
+): Promise<PaginatedResponse<FeedItem>> {
+  const response = await agent.app.bsky.feed.getFeed({ feed: feedUri, limit, cursor });
+  return {
+    items: response.data.feed.map((item: any) => normalizeFeedItem(item)),
+    cursor: response.data.cursor,
+  };
+}
+
 export async function searchPosts(
   agent: BskyAgent,
   query: string,

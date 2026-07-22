@@ -2,16 +2,26 @@
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
+import type { FeedSource } from '@/types/atproto';
 
-export function useFeed(limit = 30) {
+export function useFeed(feedSource?: FeedSource, limit = 30) {
   const { session } = useAuth();
 
+  const sourceType = feedSource?.type || 'following';
+  const feedUri = feedSource?.uri;
+
+  const queryKey = feedUri
+    ? ['feed', sourceType, feedUri, session?.did]
+    : ['feed', sourceType, session?.did];
+
   return useInfiniteQuery({
-    queryKey: ['feed', session?.did],
+    queryKey,
     queryFn: async ({ pageParam }) => {
       if (!session) throw new Error('Not authenticated');
       const params = new URLSearchParams({
         limit: String(limit),
+        sourceType,
+        ...(feedUri ? { feedUri } : {}),
         ...(pageParam ? { cursor: pageParam } : {}),
       });
       const res = await fetch(`/api/feed?${params}`);
