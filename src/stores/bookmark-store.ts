@@ -1,50 +1,102 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { Bookmark, FeedItem } from '@/types/atproto';
+import type { FeedItem } from '@/types/atproto';
 
-interface BookmarkState {
-  bookmarks: Bookmark[];
-  addBookmark: (item: FeedItem) => void;
-  removeBookmark: (uri: string) => void;
-  isBookmarked: (uri: string) => boolean;
-  clearAll: () => void;
+/**
+ * A bookmark synced from the Bluesky server.
+ * `uri` = post URI, `bookmarkUri` = the bookmark record URI (needed for deletion).
+ */
+interface SyncBookmark {
+  uri: string; // post URI (at://did:plc:xxx/app.bsky.feed.post/xxx)
+  cid: string;
+  bookmarkUri: string; // bookmark record URI (needed for deleteBookmark)
+  author: { handle: string; displayName?: string; avatar?: string };
+  text: string;
+  savedAt: string;
 }
 
-export const useBookmarkStore = create<BookmarkState>()(
-  persist(
-    (set, get) => ({
-      bookmarks: [],
+interface BookmarkState {
+  bookmarks: SyncBookmark[];
+  loaded: boolean;
+  loading: boolean;
+  /** Fetch bookmarks from the server */
+  fetchBookmarks: () => Promise<void>;
+  /** Add a bookmark via server API */
+  addBookmark: (item: FeedItem) => Promise<void>;
+  /** Remove a bookmark by its POST uri via server API */
+  removeBookmark: (postUri: string) => Promise<void>;
+  /** Check if a post is bookmarked (local check) */
+  isBookmarked: (postUri: string) => boolean;
+  /** Get the bookmark URI for a post (needed for deletion) */
+  getBookmarkUri: (postUri: string) => string | undefined;
+}
 
-      addBookmark: (item) =>
-        set((state) => {
-          if (state.bookmarks.some((b) => b.uri === item.uri)) return state;
-          return {
-            bookmarks: [
-              {
-                uri: item.uri,
-                cid: item.cid,
-                author: {
-                  handle: item.author.handle,
-                  displayName: item.author.displayName,
-                  avatar: item.author.avatar,
-                },
-                text: item.record.text.slice(0, 200),
-                savedAt: new Date().toISOString(),
-              },
-              ...state.bookmarks,
-            ],
-          };
-        }),
+export const useBookmarkStore = create<BookmarkState>()((set, get) => ({
+  bookmarks: [],
+  loaded: false,
+  loading: false,
 
-      removeBookmark: (uri) =>
-        set((state) => ({
-          bookmarks: state.bookmarks.filter((b) => b.uri !== uri),
-        })),
+  fetchBookmarks: async () => {
+    set({ loading: true });
+    try {
+      const res = await fetch('/api/bookmarks');
+      if (res.ok) {
+        const data = await res.json();
+        const items = (data.bookmarks || []).map((b: any) => ({
+          uri: b.subject?.uri || b.uri,
+          cid: b.subject?.cid || b.cid,
+          bookmarkUri: b.uri,
+          author: b.author || { handle: 'unknown' },
+          text: b.text || '',
+          savedAt: b.createdAt || new Date().toISOString(),
+        }));
+        set({ bookmarks: items, loaded: true, loading: false });
+      } else {
+        set({ loaded: true, loading: false });
+      }
+    } catch {
+      set({ loaded: true, loading: false });
+    }
+  },
 
-      isBookmarked: (uri) => get().bookmarks.some((b) => b.uri === uri),
+  addBookmark: async (item) => {
+    try {
+      const res = await fetch('/api/bookmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: item.uri, cid: item.cid }),
+      });
+      if (res.ok) {
+        // Re-fetch bookmarks to get the updated list with bookmark URIs
+        await get().fetchBookmarks();
+      }
+    } catch {
+      // Re-fetch to rollback to server state
+      await get().fetchBookmarks();
+    }
+  },
 
-      clearAll: () => set({ bookmarks: [] }),
-    }),
-    { name: 'rose-bookmarks' }
-  )
-);
+  removeBookmark: async (postUri) => {
+    const bookmarkUri = get().bookmarks.find((b) => b.uri === postUri)?.bookmarkUri;
+    if (!bookmarkUri) return;
+
+    // Optimistic remove
+    set((state) => ({
+      bookmarks: state.bookmarks.filter((b) => b.uri !== postUri),
+    }));
+
+    try {
+      await fetch('/api/bookmarks', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookmarkUri }),
+      });
+    } catch {
+      // Rollback on failure
+      get().fetchBookmarks();
+    }
+  },
+
+  isBookmarked: (postUri) => get().bookmarks.some((b) => b.uri === postUri),
+
+  getBookmarkUri: (postUri) => get().bookmarks.find((b) => b.uri === postUri)?.bookmarkUri,
+}));

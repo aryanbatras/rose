@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
 import { Heart, MessageCircle, Play, X, ChevronDown } from 'lucide-react';
+import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import type { FeedItem } from '@/types/atproto';
 
 /**
@@ -507,6 +508,12 @@ export default function ReelsPage() {
                       </div>
                       <span className="text-[11px] font-semibold text-white/70">{item.replyCount || 0}</span>
                     </button>
+
+                    <div className="flex flex-col items-center gap-0.5">
+                      <div className="h-11 w-11 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center hover:bg-white/15 transition-colors">
+                        <BookmarkButton item={item} variant="light" />
+                      </div>
+                    </div>
                   </div>
 
                   <button

@@ -7,6 +7,7 @@ import { useFeed } from '@/hooks/useFeed';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
+import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { Play } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
@@ -136,9 +137,9 @@ function PostCard({
         )}
       </div>
 
-      {/* Like count — just text, no icons. Coral when liked. */}
+      {/* Like count + Bookmark — just text for likes, bookmark icon on the right */}
       {item.likeCount >= 0 && (
-        <div className="feed-like">
+        <div className="flex items-center justify-between feed-like">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -151,6 +152,7 @@ function PostCard({
           >
             {item.likeCount.toLocaleString()} {item.likeCount === 1 ? 'like' : 'likes'}
           </button>
+          <BookmarkButton item={item} />
         </div>
       )}
 

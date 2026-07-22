@@ -16,6 +16,7 @@ import {
   Heart,
   Share2,
 } from 'lucide-react';
+import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -341,6 +342,8 @@ export function FeedCard({ item, reason }: FeedCardProps) {
             >
               <Share2 className="h-5 w-5" />
             </button>
+
+            <BookmarkButton item={item} />
           </div>
         )}
       </div>

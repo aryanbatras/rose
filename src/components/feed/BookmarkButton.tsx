@@ -1,42 +1,54 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useBookmarkStore } from '@/stores/bookmark-store';
 import type { FeedItem } from '@/types/atproto';
+import { Bookmark } from 'lucide-react';
 
 interface BookmarkButtonProps {
   item: FeedItem;
   size?: 'sm' | 'md';
+  /** 'light' variant for dark backgrounds (reels) */
+  variant?: 'default' | 'light';
 }
 
-export function BookmarkButton({ item, size = 'sm' }: BookmarkButtonProps) {
-  const { isBookmarked, addBookmark, removeBookmark } = useBookmarkStore();
+export function BookmarkButton({ item, size = 'sm', variant = 'default' }: BookmarkButtonProps) {
+  const { isBookmarked, addBookmark, removeBookmark, loaded, fetchBookmarks } = useBookmarkStore();
   const saved = isBookmarked(item.uri);
 
-  const sizeClass = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
+  // Fetch bookmarks once on mount
+  useEffect(() => {
+    if (!loaded) fetchBookmarks();
+  }, [loaded, fetchBookmarks]);
+
+  const handleToggle = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (saved) {
+      await removeBookmark(item.uri);
+    } else {
+      await addBookmark(item);
+    }
+  };
+
+  const lightStyle = variant === 'light' ? 'text-white/80 hover:text-white' : '';
 
   return (
     <button
-      onClick={(e) => {
-        e.stopPropagation();
-        if (saved) {
-          removeBookmark(item.uri);
-        } else {
-          addBookmark(item);
-        }
-      }}
-      className={`interact-btn ${saved ? 'text-brand' : ''}`}
+      onClick={handleToggle}
+      className={`transition-colors ${variant === 'default' ? 'interact-btn' : ''} ${
+        saved
+          ? 'text-brand'
+          : variant === 'light'
+            ? 'text-white/80 hover:text-white'
+            : 'text-muted-foreground'
+      }`}
       aria-label={saved ? 'Remove bookmark' : 'Bookmark'}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className={sizeClass}
+      <Bookmark
+        className="h-5 w-5"
         fill={saved ? 'currentColor' : 'none'}
-        viewBox="0 0 24 24"
-        stroke="currentColor"
         strokeWidth={saved ? 0 : 2}
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-      </svg>
+      />
     </button>
   );
 }

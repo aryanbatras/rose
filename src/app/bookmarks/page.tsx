@@ -8,7 +8,12 @@ import { useBookmarkStore } from '@/stores/bookmark-store';
 export default function BookmarksPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { bookmarks, removeBookmark, clearAll } = useBookmarkStore();
+  const { bookmarks, removeBookmark, loading, fetchBookmarks } = useBookmarkStore();
+
+  // Fetch bookmarks from server on mount
+  useEffect(() => {
+    if (isAuthenticated) fetchBookmarks();
+  }, [isAuthenticated, fetchBookmarks]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');
@@ -24,17 +29,18 @@ export default function BookmarksPage() {
         <div className="flex items-center justify-between px-4 h-[53px]">
           <h1 className="text-lg font-bold font-heading text-foreground">Bookmarks</h1>
           {bookmarks.length > 0 && (
-            <button
-              onClick={clearAll}
-              className="text-sm text-destructive hover:text-destructive/80 transition-colors"
-            >
-              Clear all
-            </button>
+            <span className="text-xs text-muted-foreground">
+              {bookmarks.length} saved
+            </span>
           )}
         </div>
       </header>
 
-      {bookmarks.length === 0 ? (
+      {loading ? (
+        <div className="py-20 text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-brand/60 mx-auto" />
+        </div>
+      ) : bookmarks.length === 0 ? (
         <div className="py-20 text-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"

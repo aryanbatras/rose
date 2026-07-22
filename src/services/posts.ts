@@ -218,6 +218,84 @@ export async function searchPosts(
   };
 }
 
+// ─── Bookmarks ──────────────────────────────────────────────
+
+/**
+ * Create a bookmark for a post.
+ * Calls app.bsky.bookmark.createBookmark.
+ */
+/**
+ * Create a bookmark for a post.
+ * Calls app.bsky.bookmark.createBookmark.
+ * NOTE: The API returns {} on success — no bookmark URI is returned.
+ * To get the bookmark URI for deletion, use getBookmarks() after creating.
+ */
+export async function createBookmark(
+  agent: BskyAgent,
+  uri: string,
+  cid: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    // The API expects { uri, cid } directly at the root level
+    await agent.api.xrpc.call(
+      'app.bsky.bookmark.createBookmark',
+      {},
+      { uri, cid },
+      { encoding: 'application/json' }
+    );
+    return { success: true };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to bookmark' };
+  }
+}
+
+/**
+ * Delete a bookmark by its URI.
+ * Calls app.bsky.bookmark.deleteBookmark.
+ */
+export async function deleteBookmark(
+  agent: BskyAgent,
+  bookmarkUri: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    await agent.api.xrpc.call(
+      'app.bsky.bookmark.deleteBookmark',
+      {},
+      { uri: bookmarkUri },
+      { encoding: 'application/json' }
+    );
+    return { success: true };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to remove bookmark' };
+  }
+}
+
+/**
+ * Fetch bookmarks for the current user.
+ * Calls app.bsky.bookmark.getBookmarks.
+ */
+export async function getBookmarks(
+  agent: BskyAgent,
+  cursor?: string,
+  limit = 30
+): Promise<{ bookmarks: any[]; cursor?: string; error?: string }> {
+  try {
+    const response = await agent.api.xrpc.call(
+      'app.bsky.bookmark.getBookmarks',
+      { limit, cursor },
+      {},
+      { encoding: 'application/json' }
+    );
+    const data = (response as any).data || {};
+    return {
+      bookmarks: data.bookmarks || [],
+      cursor: data.cursor,
+    };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to fetch bookmarks', bookmarks: [] };
+  }
+}
+
 export async function uploadBlob(
   agent: BskyAgent,
   data: Blob | ArrayBuffer | Uint8Array,
