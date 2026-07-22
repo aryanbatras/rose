@@ -8,12 +8,12 @@ import { useBookmarkStore } from '@/stores/bookmark-store';
 export default function BookmarksPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { bookmarks, removeBookmark, loading, fetchBookmarks } = useBookmarkStore();
+  const { bookmarks, removeBookmark, loading, loaded, fetchBookmarks } = useBookmarkStore();
 
   // Fetch bookmarks from server on mount
   useEffect(() => {
-    if (isAuthenticated) fetchBookmarks();
-  }, [isAuthenticated, fetchBookmarks]);
+    if (isAuthenticated && !loaded && !loading) fetchBookmarks();
+  }, [isAuthenticated, loaded, loading, fetchBookmarks]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');

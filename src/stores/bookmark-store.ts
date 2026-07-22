@@ -36,6 +36,7 @@ export const useBookmarkStore = create<BookmarkState>()((set, get) => ({
   loading: false,
 
   fetchBookmarks: async () => {
+    if (get().loading) return;
     set({ loading: true });
     try {
       const res = await fetch('/api/bookmarks');

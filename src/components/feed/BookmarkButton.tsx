@@ -13,13 +13,13 @@ interface BookmarkButtonProps {
 }
 
 export function BookmarkButton({ item, size = 'sm', variant = 'default' }: BookmarkButtonProps) {
-  const { isBookmarked, addBookmark, removeBookmark, loaded, fetchBookmarks } = useBookmarkStore();
+  const { isBookmarked, addBookmark, removeBookmark, loaded, loading, fetchBookmarks } = useBookmarkStore();
   const saved = isBookmarked(item.uri);
 
   // Fetch bookmarks once on mount
   useEffect(() => {
-    if (!loaded) fetchBookmarks();
-  }, [loaded, fetchBookmarks]);
+    if (!loaded && !loading) fetchBookmarks();
+  }, [loaded, loading, fetchBookmarks]);
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
