@@ -58,6 +58,10 @@ export interface Embed {
     cid: string;
     author?: ActorView;
   };
+  // Hydrated View form: embed.playlist, embed.thumbnail
+  playlist?: string;
+  thumbnail?: string;
+  // Raw Main form: embed.video.playlist, embed.video.thumbnail
   video?: {
     cid: string;
     playlist?: string;

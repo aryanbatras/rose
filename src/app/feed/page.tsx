@@ -2,6 +2,8 @@
 
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useGSAPScrollAnimation } from '@/hooks/useGSDPScrollAnimation';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
 import { useViewModeStore } from '@/stores/view-mode-store';
@@ -62,7 +64,12 @@ function GridView({ items }: { items: FeedItem[] }) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-1">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
+      className="grid grid-cols-2 md:grid-cols-3 gap-1 p-1"
+    >
       {mediaItems.map((item) => {
         const em = item.record.embed;
         // Try all possible thumbnail locations
@@ -70,11 +77,16 @@ function GridView({ items }: { items: FeedItem[] }) {
           em?.images?.[0]?.thumb ||
           em?.images?.[0]?.fullsize ||
           em?.external?.thumb ||
+          em?.thumbnail ||
           em?.video?.thumbnail ||
           null;
         return (
-          <button
+          <motion.button
             key={`${item.uri}-${item.cid}`}
+            variants={{
+              hidden: { opacity: 0, scale: 0.95 },
+              visible: { opacity: 1, scale: 1 },
+            }}
             onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
             className="relative aspect-square overflow-hidden rounded-lg bg-surface-elevated group cursor-pointer"
           >
@@ -98,10 +110,10 @@ function GridView({ items }: { items: FeedItem[] }) {
                 {item.author.displayName || item.author.handle}
               </p>
             </div>
-          </button>
+          </motion.button>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
 
@@ -160,9 +172,12 @@ function ReelsView({ items }: { items: FeedItem[] }) {
 
   return (
     <div className="flex flex-col">
-      {videoItems.map((item) => (
-        <div
+      {videoItems.map((item, index) => (
+        <motion.div
           key={`${item.uri}-${item.cid}`}
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, delay: index * 0.05, ease: 'easeOut' }}
           className="relative h-[100dvh] w-full snap-start snap-always"
         >
           {/* Full-screen video player */}
@@ -237,7 +252,7 @@ function ReelsView({ items }: { items: FeedItem[] }) {
               </div>
             </button>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   );
@@ -261,6 +276,9 @@ export default function FeedPage() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');
   }, [isAuthenticated, authLoading, router]);
+
+  // GSAP scroll-triggered fade-in for feed cards in classic/compact mode
+  useGSAPScrollAnimation('.feed-card', { stagger: 0.06 });
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useCallback(
@@ -361,21 +379,30 @@ export default function FeedPage() {
           </p>
         </div>
       ) : (
-        <>            {mode === 'classic' && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {mode === 'classic' && (
               <div>
                 {filteredPosts.map((item: any, index: number) => (
                   <FeedCard key={`${item.uri}-${item.cid || index}`} item={item} reason={item.reason} />
                 ))}
               </div>
-          )}
-          {mode === 'grid' && <GridView items={filteredPosts} />}
-          {mode === 'reels' && <ReelsView items={filteredPosts} />}
-          {mode === 'compact' && <CompactView items={filteredPosts} />}
+            )}
+            {mode === 'grid' && <GridView items={filteredPosts} />}
+            {mode === 'reels' && <ReelsView items={filteredPosts} />}
+            {mode === 'compact' && <CompactView items={filteredPosts} />}
+          </motion.div>
 
           <div ref={loadMoreRef} className="py-8">
             {isFetchingNextPage && Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)}
           </div>
-        </>
+        </AnimatePresence>
       )}
     </>
   );

@@ -42,9 +42,10 @@ export function BlueskyVideoPlayer({
   }, []);
 
   const embed = item.record.embed;
-  const videoData = embed?.video;
-  const playlistUrl = videoData?.playlist;
-  const thumbnailUrl = videoData?.thumbnail;
+  // Hydrated View form (post.embed):  embed.playlist, embed.thumbnail
+  // Raw Main form (record.embed):     embed.video.playlist, embed.video.thumbnail
+  const playlistUrl = embed?.playlist || embed?.video?.playlist;
+  const thumbnailUrl = embed?.thumbnail || embed?.video?.thumbnail;
   const isReels = variant === 'reels';
 
   // Initialize video player

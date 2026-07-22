@@ -4,8 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar } from '@/components/ui/avatar';
 import { BlueskyVideoPlayer } from '@/components/feed/BlueskyVideoPlayer';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { formatRelativeTime } from '@/lib/time';
+import { motion } from 'framer-motion';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -60,51 +61,66 @@ export function FeedCard({ item, reason }: FeedCardProps) {
 
   if (deleted) return null;
 
-  const handleLike = async (e: React.MouseEvent) => {
+  const handleLike = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!session || isLiking) return;
     setIsLiking(true);
+    // Optimistic update for instant feedback
+    const wasLiked = liked;
+    const prevCount = likeCount;
+    setLiked(!wasLiked);
+    setLikeCount((c) => (wasLiked ? Math.max(0, c - 1) : c + 1));
     try {
-      if (liked && item.viewer?.like) {
+      if (wasLiked && item.viewer?.like) {
         const res = await fetch('/api/interact/unlike', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ likeUri: item.viewer.like }),
         });
-        if (res.ok) { setLiked(false); setLikeCount((c) => Math.max(0, c - 1)); }
+        if (!res.ok) { setLiked(true); setLikeCount(prevCount); }
       } else {
         const res = await fetch('/api/interact/like', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uri: item.uri, cid: item.cid }),
         });
-        if (res.ok) { setLiked(true); setLikeCount((c) => c + 1); }
+        if (!res.ok) { setLiked(false); setLikeCount(prevCount); }
       }
+    } catch {
+      setLiked(wasLiked);
+      setLikeCount(prevCount);
     } finally { setIsLiking(false); }
-  };
+  }, [session, isLiking, liked, likeCount, item.uri, item.cid, item.viewer?.like]);
 
-  const handleRepost = async (e: React.MouseEvent) => {
+  const handleRepost = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!session || isReposting) return;
     setIsReposting(true);
+    const wasReposted = reposted;
+    const prevCount = repostCount;
+    setReposted(!wasReposted);
+    setRepostCount((c) => (wasReposted ? Math.max(0, c - 1) : c + 1));
     try {
-      if (reposted && item.viewer?.repost) {
+      if (wasReposted && item.viewer?.repost) {
         const res = await fetch('/api/interact/repost', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ repostUri: item.viewer.repost }),
         });
-        if (res.ok) { setReposted(false); setRepostCount((c) => Math.max(0, c - 1)); }
+        if (!res.ok) { setReposted(true); setRepostCount(prevCount); }
       } else {
         const res = await fetch('/api/interact/repost', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ uri: item.uri, cid: item.cid }),
         });
-        if (res.ok) { setReposted(true); setRepostCount((c) => c + 1); }
+        if (!res.ok) { setReposted(false); setRepostCount(prevCount); }
       }
+    } catch {
+      setReposted(wasReposted);
+      setRepostCount(prevCount);
     } finally { setIsReposting(false); }
-  };
+  }, [session, isReposting, reposted, repostCount, item.uri, item.cid, item.viewer?.repost]);
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -124,7 +140,10 @@ export function FeedCard({ item, reason }: FeedCardProps) {
   const authorDisplay = item.author.displayName || item.author.handle;
 
   return (
-    <article
+    <motion.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
       onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
       className="feed-card"
     >
@@ -271,15 +290,30 @@ export function FeedCard({ item, reason }: FeedCardProps) {
             className={`interact-btn ${liked ? 'liked' : ''}`}
             aria-label={liked ? 'Unlike' : 'Like'}
           >
-            <svg
-              fill={liked ? 'currentColor' : 'none'}
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={liked ? 0 : 2}
+            <motion.div
+              key={liked ? 'liked' : 'unliked'}
+              initial={liked ? { scale: 1.5 } : false}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+              className="flex items-center gap-1"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-            <span className="tabular-nums">{likeCount || ''}</span>
+              <svg
+                fill={liked ? 'currentColor' : 'none'}
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={liked ? 0 : 2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </motion.div>
+            <motion.span
+              key={likeCount}
+              initial={{ scale: 1.3 }}
+              animate={{ scale: 1 }}
+              className="tabular-nums"
+            >
+              {likeCount || ''}
+            </motion.span>
           </button>
 
           <button
@@ -305,6 +339,6 @@ export function FeedCard({ item, reason }: FeedCardProps) {
           </button>
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }
