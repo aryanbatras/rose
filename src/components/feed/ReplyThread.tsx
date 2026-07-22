@@ -17,14 +17,15 @@ interface ReplyThreadProps {
 
 const MAX_DEPTH = 10;
 
-/** Indentation per depth level in pixels */
-const INDENT_PER_LEVEL = 40;
+/** Indentation per depth level — Instagram uses ~12-16px */
+const INDENT_PER_LEVEL = 16;
 
-/** Colors for depth indicator lines — cycles after 3 */
-const DEPTH_COLORS = [
+/** Colors for the left border thread line — cycles after 4 */
+const LINE_COLORS = [
   'var(--brand)',
-  'var(--blue)',
   'var(--muted-foreground)',
+  'var(--accent-foreground)',
+  'var(--blue)',
 ];
 
 export function ReplyThread({ replies, depth = 0 }: ReplyThreadProps) {
@@ -33,15 +34,15 @@ export function ReplyThread({ replies, depth = 0 }: ReplyThreadProps) {
   if (depth >= MAX_DEPTH) {
     return (
       <div
-        className="py-3 text-sm text-muted-foreground italic"
-        style={{ paddingLeft: depth > 0 ? 12 + INDENT_PER_LEVEL : 12 }}
+        className="py-3 text-sm text-muted-foreground/60 italic"
+        style={{ paddingLeft: 12 + depth * INDENT_PER_LEVEL }}
       >
         … continued deeper
       </div>
     );
   }
 
-  const lineColor = DEPTH_COLORS[depth % DEPTH_COLORS.length];
+  const lineColor = LINE_COLORS[depth % LINE_COLORS.length];
 
   return (
     <>
@@ -56,43 +57,45 @@ export function ReplyThread({ replies, depth = 0 }: ReplyThreadProps) {
 
         return (
           <div key={post.uri || index} className="relative">
-            {/* Vertical connector line — runs full height of this reply */}
-            {depth >= 0 && (
-              <div
-                className="absolute top-0 bottom-0 w-px"
-                style={{
-                  left: 12 + depth * (INDENT_PER_LEVEL / 2),
-                  backgroundColor: lineColor,
-                  opacity: 0.25,
-                }}
-              />
-            )}
-
-            {/* Horizontal branch connector — from vertical line to card */}
-            {depth >= 0 && (
-              <div
-                className="absolute top-[36px] h-px"
-                style={{
-                  left: 12 + depth * (INDENT_PER_LEVEL / 2),
-                  width: 20,
-                  backgroundColor: lineColor,
-                  opacity: 0.25,
-                }}
-              />
-            )}
-
-            {/* The reply card itself — indented */}
+            {/* Thin vertical thread line — tracks with content indent per depth */}
             <div
-              style={{ paddingLeft: depth >= 0 ? 12 + (depth + 1) * (INDENT_PER_LEVEL / 2) : 12 }}
+              className="absolute top-0 bottom-0 w-px"
+              style={{
+                left: depth * INDENT_PER_LEVEL + 18,
+                backgroundColor: lineColor,
+                opacity: 0.18,
+              }}
+            />
+
+            {/* The reply content — minimal indent */}
+            <div
+              className="relative"
+              style={{ paddingLeft: depth * INDENT_PER_LEVEL + 12 }}
             >
+              {/* Small dot at the connector point — aligns with the vertical line */}
               <div
-                className="rounded-r-lg transition-colors"
+                className="absolute top-[22px] h-2 w-2 rounded-full"
+                style={{
+                  left: 6,
+                  backgroundColor: lineColor,
+                  opacity: 0.35,
+                }}
+              />
+
+              {/* Left accent border + actual card */}
+              <div
+                className="rounded-r-xl transition-colors"
                 style={{
                   borderLeft: `2px solid ${lineColor}`,
-                  opacity: Math.max(1 - depth * 0.08, 0.6),
+                  borderLeftWidth: '2px',
+                  borderLeftStyle: 'solid',
+                  borderLeftColor: lineColor,
+                  opacity: 1,
                 }}
               >
-                <FeedCard item={post} />
+                <div className="pl-3 py-1">
+                  <FeedCard item={post} />
+                </div>
               </div>
 
               {/* Nested replies */}

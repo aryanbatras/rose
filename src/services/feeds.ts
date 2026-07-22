@@ -1,5 +1,21 @@
 import { BskyAgent } from '@atproto/api';
 
+// ─── NSFW Content Filtering ────────────────────────
+const NSFW_LABELS = new Set(['porn', 'sexual', 'nudity', 'graphic-media']);
+
+function isNsfwPost(item: any): boolean {
+  const post = item.post || item;
+  const postLabels = post.labels || [];
+  if (postLabels.some((l: any) => NSFW_LABELS.has(l.val))) return true;
+  const authorLabels = post.author?.labels || [];
+  if (authorLabels.some((l: any) => NSFW_LABELS.has(l.val))) return true;
+  return false;
+}
+
+function filterNsfwItems<T>(items: T[]): T[] {
+  return items.filter((item: any) => !isNsfwPost(item));
+}
+
 /**
  * Normalize a feed item from a custom feed to match our FeedItem structure.
  */
@@ -285,8 +301,9 @@ export async function getFeedPosts(
     limit,
     cursor,
   });
+  const items = response.data.feed.map((item: any) => normalizeFeedItem(item));
   return {
-    items: response.data.feed.map((item: any) => normalizeFeedItem(item)),
+    items: filterNsfwItems(items),
     cursor: response.data.cursor,
   };
 }

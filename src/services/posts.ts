@@ -4,14 +4,42 @@ import { BskyAgent } from '@atproto/api';
 import { revalidatePath } from 'next/cache';
 import type { FeedItem, PaginatedResponse } from '@/types/atproto';
 
+// ─── NSFW Content Filtering ────────────────────────
+// Bluesky moderation labels for adult content (from com.atproto.label.defs)
+const NSFW_LABELS = new Set(['porn', 'sexual', 'nudity', 'graphic-media']);
+
+/**
+ * Check if a post has any NSFW labels attached to it.
+ * Looks at both the post-level labels and the author-level labels.
+ */
+function isNsfwPost(item: any): boolean {
+  const post = item.post || item;
+  // Check post-level labels
+  const postLabels = post.labels || [];
+  if (postLabels.some((l: any) => NSFW_LABELS.has(l.val))) return true;
+  // Check author-level labels
+  const authorLabels = post.author?.labels || [];
+  if (authorLabels.some((l: any) => NSFW_LABELS.has(l.val))) return true;
+  return false;
+}
+
+/**
+ * Filter out NSFW posts from an array of feed items.
+ * Returns only safe-for-work items.
+ */
+function filterNsfwItems<T>(items: T[]): T[] {
+  return items.filter((item: any) => !isNsfwPost(item));
+}
+
 export async function getTimeline(
   agent: BskyAgent,
   cursor?: string,
   limit = 30
 ): Promise<PaginatedResponse<FeedItem>> {
   const response = await agent.getTimeline({ limit, cursor });
+  const items = response.data.feed.map((item: any) => normalizeFeedItem(item));
   return {
-    items: response.data.feed.map((item: any) => normalizeFeedItem(item)),
+    items: filterNsfwItems(items),
     cursor: response.data.cursor,
   };
 }
@@ -23,8 +51,9 @@ export async function getAuthorFeed(
   limit = 30
 ): Promise<PaginatedResponse<FeedItem>> {
   const response = await agent.getAuthorFeed({ actor, limit, cursor });
+  const items = response.data.feed.map((item: any) => normalizeFeedItem(item));
   return {
-    items: response.data.feed.map((item: any) => normalizeFeedItem(item)),
+    items: filterNsfwItems(items),
     cursor: response.data.cursor,
   };
 }
@@ -61,6 +90,10 @@ function normalizeThreadNode(node: any): any {
     normalized.replies = node.replies
       .map((reply: any) => normalizeThreadNode(reply))
       .filter(Boolean);
+    // Filter NSFW replies from thread view
+    if (normalized.replies.length > 0) {
+      normalized.replies = filterNsfwItems(normalized.replies);
+    }
   }
 
   return normalized;
@@ -160,8 +193,9 @@ export async function getCustomFeed(
   limit = 30
 ): Promise<PaginatedResponse<FeedItem>> {
   const response = await agent.app.bsky.feed.getFeed({ feed: feedUri, limit, cursor });
+  const items = response.data.feed.map((item: any) => normalizeFeedItem(item));
   return {
-    items: response.data.feed.map((item: any) => normalizeFeedItem(item)),
+    items: filterNsfwItems(items),
     cursor: response.data.cursor,
   };
 }
@@ -177,8 +211,9 @@ export async function searchPosts(
     limit,
     cursor,
   });
+  const items = (response.data.posts || []).map((item: any) => normalizeFeedItem(item));
   return {
-    items: (response.data.posts || []).map((item: any) => normalizeFeedItem(item)),
+    items: filterNsfwItems(items),
     cursor: response.data.cursor,
   };
 }
