@@ -522,6 +522,93 @@ export async function listMutualGroups(
 }
 
 /**
+ * Mute a group conversation (stop receiving notifications).
+ */
+export async function muteGroup(
+  agent: BskyAgent,
+  convoId: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    await (agent.api.chat.bsky.convo as any).muteConvo({ convoId });
+    return { success: true };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to mute group' };
+  }
+}
+
+/**
+ * Unmute a group conversation (resume receiving notifications).
+ */
+export async function unmuteGroup(
+  agent: BskyAgent,
+  convoId: string
+): Promise<{ success?: boolean; error?: string }> {
+  try {
+    await (agent.api.chat.bsky.convo as any).unmuteConvo({ convoId });
+    return { success: true };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to unmute group' };
+  }
+}
+
+/**
+ * Edit group settings (name).
+ */
+export async function editGroupSettings(
+  agent: BskyAgent,
+  convoId: string,
+  name: string
+): Promise<{ convo?: ConvoView; error?: string }> {
+  try {
+    const response = await (agent.api.chat.bsky.group as any).editGroup({
+      convoId,
+      name,
+    });
+    return { convo: response.data?.convo };
+  } catch (error: any) {
+    const message = error?.message || 'Failed to update group settings';
+    if (message.includes('NameTooLong')) {
+      return { error: 'Group name is too long (max 50 characters).' };
+    }
+    if (message.includes('NameRequired')) {
+      return { error: 'Group name is required.' };
+    }
+    return { error: message };
+  }
+}
+
+/**
+ * Edit join link settings (approval requirement, join rule).
+ */
+export async function editJoinLinkSettings(
+  agent: BskyAgent,
+  convoId: string,
+  requireApproval: boolean,
+  joinRule?: JoinRule
+): Promise<{ joinLink?: JoinLink; error?: string }> {
+  try {
+    const response = await (agent.api.chat.bsky.group as any).editJoinLink({
+      convoId,
+      requireApproval,
+      ...(joinRule ? { joinRule } : {}),
+    });
+    const link = response.data?.joinLink;
+    if (!link) return { error: 'No join link returned' };
+    return {
+      joinLink: {
+        code: link.code,
+        enabledStatus: link.enabledStatus,
+        requireApproval: link.requireApproval,
+        joinRule: link.joinRule,
+        createdAt: link.createdAt,
+      },
+    };
+  } catch (error: any) {
+    return { error: error?.message || 'Failed to update join link settings' };
+  }
+}
+
+/**
  * Send a message to a group conversation.
  */
 export async function sendGroupMessage(

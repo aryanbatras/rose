@@ -40,6 +40,12 @@ export default function GroupDetailPage() {
   const [showRequests, setShowRequests] = useState(false);
   const [requestsLoading, setRequestsLoading] = useState(false);
 
+  // ── Group Settings ──────────────────────────────────────────────────
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+
   // Fetch group data
   useEffect(() => {
     if (!isAuthenticated || !convoId) return;
@@ -188,6 +194,77 @@ export default function GroupDetailPage() {
     navigator.clipboard.writeText(joinLink.code);
     toast.success('Invite code copied to clipboard!');
   }, [joinLink]);
+
+  // ── Settings actions ──────────────────────────────────────────────────
+  const handleSaveName = useCallback(async () => {
+    const name = editName.trim();
+    if (!name || settingsLoading || !convoId) return;
+    setSettingsLoading(true);
+    try {
+      const res = await fetch(`/api/groups/${convoId}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_name', name }),
+      });
+      if (res.ok) {
+        setGroup((prev) => prev ? { ...prev, name } : null);
+        setEditingName(false);
+        toast.success('Group name updated!');
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to update name');
+      }
+    } catch {
+      toast.error('Connection error');
+    }
+    setSettingsLoading(false);
+  }, [editName, settingsLoading, convoId]);
+
+  const handleToggleMute = useCallback(async () => {
+    if (settingsLoading || !convoId || !group) return;
+    setSettingsLoading(true);
+    const newMuted = !group.muted;
+    try {
+      const res = await fetch(`/api/groups/${convoId}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_mute', muted: newMuted }),
+      });
+      if (res.ok) {
+        setGroup((prev) => prev ? { ...prev, muted: newMuted } : null);
+        toast.success(newMuted ? 'Group muted' : 'Group unmuted');
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to toggle mute');
+      }
+    } catch {
+      toast.error('Connection error');
+    }
+    setSettingsLoading(false);
+  }, [settingsLoading, convoId, group]);
+
+  const handleToggleApproval = useCallback(async () => {
+    if (settingsLoading || !convoId || !joinLink) return;
+    setSettingsLoading(true);
+    const newApproval = !joinLink.requireApproval;
+    try {
+      const res = await fetch(`/api/groups/${convoId}/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_approval', requireApproval: newApproval }),
+      });
+      if (res.ok) {
+        setJoinLink((prev) => prev ? { ...prev, requireApproval: newApproval } : null);
+        toast.success(newApproval ? 'Approval required for new members' : 'Open join enabled');
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to toggle approval');
+      }
+    } catch {
+      toast.error('Connection error');
+    }
+    setSettingsLoading(false);
+  }, [settingsLoading, convoId, joinLink]);
 
   // ── Pending requests actions ─────────────────────────────────────────
   const loadPendingRequests = useCallback(async () => {
@@ -423,6 +500,22 @@ export default function GroupDetailPage() {
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+            </button>
+          )}
+
+          {/* Settings button */}
+          {!loading && (
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-lg transition-colors ${
+                showSettings ? 'bg-brand/20 text-brand' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+              }`}
+              aria-label="Group settings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </button>
           )}
@@ -694,6 +787,124 @@ export default function GroupDetailPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Settings panel */}
+      {showSettings && (
+        <div className="border-b border-border bg-surface-elevated/50 px-4 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-foreground">Group Settings</h3>
+          </div>
+
+          <div className="space-y-4">
+            {/* Group name editor */}
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                Group Name
+              </label>
+              {editingName ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    maxLength={50}
+                    className="flex-1 rounded-lg border border-border bg-surface-base px-3 py-2 text-sm text-foreground focus:outline-none focus:border-brand transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveName();
+                      }
+                      if (e.key === 'Escape') {
+                        setEditingName(false);
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={settingsLoading || !editName.trim()}
+                    className="px-3 py-2 rounded-lg bg-brand text-black text-xs font-semibold hover:bg-brand-hover disabled:opacity-50 transition-colors"
+                  >
+                    {settingsLoading ? '...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setEditingName(false)}
+                    className="px-3 py-2 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:bg-accent/50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-foreground">{group?.name || 'Unnamed Group'}</span>
+                  <button
+                    onClick={() => {
+                      setEditName(group?.name || '');
+                      setEditingName(true);
+                    }}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+                    aria-label="Edit group name"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Mute toggle */}
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <span className="text-sm text-foreground">Mute notifications</span>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Stop receiving notifications for this group
+                </p>
+              </div>
+              <button
+                onClick={handleToggleMute}
+                disabled={settingsLoading}
+                className={`relative h-6 w-10 rounded-full transition-colors disabled:opacity-50 ${
+                  group?.muted ? 'bg-brand' : 'bg-border'
+                }`}
+                aria-label={group?.muted ? 'Unmute group' : 'Mute group'}
+              >
+                <div
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                    group?.muted ? 'translate-x-[18px]' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Approval toggle (visible when invite link exists) */}
+            {joinLink && (
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <span className="text-sm text-foreground">Require approval</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    New members need owner approval to join via invite link
+                </p>
+                </div>
+                <button
+                  onClick={handleToggleApproval}
+                  disabled={settingsLoading}
+                  className={`relative h-6 w-10 rounded-full transition-colors disabled:opacity-50 ${
+                    joinLink?.requireApproval ? 'bg-brand' : 'bg-border'
+                  }`}
+                  aria-label={joinLink?.requireApproval ? 'Disable approval requirement' : 'Enable approval requirement'}
+                >
+                  <div
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      joinLink?.requireApproval ? 'translate-x-[18px]' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
