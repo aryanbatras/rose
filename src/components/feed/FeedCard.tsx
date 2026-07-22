@@ -22,9 +22,10 @@ import type { FeedItem } from '@/types/atproto';
 interface FeedCardProps {
   item: FeedItem;
   reason?: { $type: string; by: { handle: string; displayName?: string; avatar?: string } };
+  hideAvatar?: boolean;
 }
 
-export function FeedCard({ item, reason }: FeedCardProps) {
+export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
   const router = useRouter();
   const { session } = useAuth();
   const [liked, setLiked] = useState(!!item.viewer?.like);
@@ -157,7 +158,7 @@ export function FeedCard({ item, reason }: FeedCardProps) {
       onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
       className="feed-card"
     >
-      {!spells.hideAvatar && (
+      {!spells.hideAvatar && !hideAvatar && (
         <button
           onClick={(e) => { e.stopPropagation(); router.push(`/profile/${item.author.handle}`); }}
           className="shrink-0"
@@ -192,18 +193,26 @@ export function FeedCard({ item, reason }: FeedCardProps) {
             {formatRelativeTime(item.indexedAt)}
           </span>
 
-          {isOwnPost && (
-            <div className="relative ml-auto" ref={menuRef}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
-                className="p-1.5 rounded-full hover:bg-brand/10 transition-colors"
-                aria-label="Post options"
-              >
-                <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-              </button>
+          <div className="relative ml-auto" ref={menuRef}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+              className="p-1.5 rounded-full hover:bg-brand/10 transition-colors"
+              aria-label="Post options"
+            >
+              <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+            </button>
 
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-background border border-border rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRepost(e); setShowMenu(false); }}
+                  disabled={isReposting}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
+                >
+                  <Repeat className="h-4.5 w-4.5" />
+                  {reposted ? 'Undo repost' : 'Repost'}
+                </button>
+                {isOwnPost && (
                   <button
                     onClick={handleDelete}
                     disabled={isDeleting}
@@ -212,10 +221,10 @@ export function FeedCard({ item, reason }: FeedCardProps) {
                     <Trash2 className="h-4.5 w-4.5" />
                     {isDeleting ? 'Deleting...' : 'Delete post'}
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Post text */}

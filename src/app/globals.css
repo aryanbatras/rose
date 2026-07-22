@@ -208,6 +208,19 @@ body {
   box-shadow: 0 1px 4px var(--brand-subtle);
 }
 
+/* ── Feed card: avatar + content side-by-side ── */
+.feed-card {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.feed-card:hover {
+  background: var(--accent);
+}
+
 /* ── Feed posts: fully borderless, spacious, content-first ── */
 .feed-post {
   padding: 20px 0;

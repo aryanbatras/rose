@@ -12,10 +12,12 @@ import { useEffect } from 'react';
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, session } = useAuth();
   const handle = decodeURIComponent(params.handle as string);
   const { data: profile, isLoading: profileLoading, error: profileError } = useProfile(handle);
   const { data: feedData, isLoading: feedLoading } = useAuthorFeed(handle);
+
+  const isOwnProfile = session?.handle === handle || session?.did === profile?.did;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -90,7 +92,7 @@ export default function ProfilePage() {
           </div>
         ) : (
           posts.map((item: any, index: number) => (
-            <FeedCard key={`${item.uri}-${index}`} item={item} />
+            <FeedCard key={`${item.uri}-${index}`} item={item} hideAvatar={isOwnProfile} />
           ))
         )}
       </main>
