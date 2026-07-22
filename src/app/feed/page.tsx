@@ -15,6 +15,7 @@ import { BlueskyVideoPlayer } from '@/components/feed/BlueskyVideoPlayer';
 import { ViewModeToggle } from '@/components/feed/ViewModeToggle';
 import { FilterPanel } from '@/components/feed/FilterPanel';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
+import { StoriesRow } from '@/components/feed/StoriesRow';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
 import type { FeedItem, ViewMode } from '@/types/atproto';
 
@@ -47,10 +48,11 @@ function applyClientFilters(posts: FeedItem[], content: any, mute: any): FeedIte
 
 function GridView({ items }: { items: FeedItem[] }) {
   const router = useRouter();
+  // In Gridsky style, show ALL items that have media (images/video/external)
+  // But also show text-only posts in a smaller format for completeness
   const mediaItems = items.filter((p) => {
     const em = p.record.embed;
     if (!em) return false;
-    // Bluesky returns embed.$type with #view suffix in hydrated form
     const t = em.$type || '';
     return t.includes('images') || t.includes('video') || t.includes('external');
   });
@@ -67,12 +69,11 @@ function GridView({ items }: { items: FeedItem[] }) {
     <motion.div
       initial="hidden"
       animate="visible"
-      variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.04 } } }}
-      className="grid grid-cols-2 md:grid-cols-3 gap-1 p-1"
+      variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.03 } } }}
+      className="grid grid-cols-2 sm:grid-cols-3 gap-[2px] px-0"
     >
       {mediaItems.map((item) => {
         const em = item.record.embed;
-        // Try all possible thumbnail locations
         const thumbUrl =
           em?.images?.[0]?.thumb ||
           em?.images?.[0]?.fullsize ||
@@ -80,6 +81,9 @@ function GridView({ items }: { items: FeedItem[] }) {
           em?.thumbnail ||
           em?.video?.thumbnail ||
           null;
+        const authorName = item.author.displayName || item.author.handle;
+        const isVideo = (em?.$type || '').includes('video');
+
         return (
           <motion.button
             key={`${item.uri}-${item.cid}`}
@@ -88,15 +92,48 @@ function GridView({ items }: { items: FeedItem[] }) {
               visible: { opacity: 1, scale: 1 },
             }}
             onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
-            className="relative aspect-square overflow-hidden rounded-lg bg-surface-elevated group cursor-pointer"
+            className="relative aspect-square overflow-hidden bg-surface-elevated group cursor-pointer"
           >
             {thumbUrl ? (
-              <img
-                src={thumbUrl}
-                alt=""
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
+              <>
+                <img
+                  src={thumbUrl}
+                  alt=""
+                  className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  loading="lazy"
+                />
+                {/* Subtle top gradient */}
+                <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                {/* Bottom gradient overlay with info */}
+                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="h-6 w-6 rounded-full overflow-hidden ring-1 ring-white/30 shrink-0">
+                        {item.author.avatar && (
+                          <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
+                        )}
+                      </div>
+                      <span className="text-[13px] font-semibold text-white truncate drop-shadow-sm">
+                        {authorName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] text-white/80">
+                      <span className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        {item.likeCount || 0}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        {item.replyCount || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-brand/5">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-brand/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -104,12 +141,24 @@ function GridView({ items }: { items: FeedItem[] }) {
                 </svg>
               </div>
             )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-            <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <p className="text-xs text-white font-medium truncate drop-shadow-lg">
-                {item.author.displayName || item.author.handle}
-              </p>
-            </div>
+
+            {/* Video badge */}
+            {isVideo && (
+              <div className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24" stroke="none">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+
+            {/* Multiple images indicator */}
+            {em && em.images && em.images.length > 1 && (
+              <div className="absolute top-2 left-2 h-6 w-6 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
           </motion.button>
         );
       })}
@@ -180,12 +229,10 @@ function ReelsView({ items }: { items: FeedItem[] }) {
           transition={{ duration: 0.4, delay: index * 0.05, ease: 'easeOut' }}
           className="relative h-[100dvh] w-full snap-start snap-always"
         >
-          {/* Full-screen video player */}
           <div className="absolute inset-0">
             <BlueskyVideoPlayer item={item} variant="reels" autoPlay muted />
           </div>
 
-          {/* Bottom overlay with author info */}
           <div className="absolute bottom-0 left-0 right-0 p-6 pb-12 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none">
             <div className="flex items-center gap-3 pointer-events-auto">
               <button
@@ -216,7 +263,6 @@ function ReelsView({ items }: { items: FeedItem[] }) {
             )}
           </div>
 
-          {/* Right side action bar */}
           <div className="absolute bottom-24 right-4 flex flex-col items-center gap-5 z-10">
             <button
               onClick={(e) => { e.stopPropagation(); /* like */ }}
@@ -277,7 +323,6 @@ export default function FeedPage() {
     if (!authLoading && !isAuthenticated) router.replace('/login');
   }, [isAuthenticated, authLoading, router]);
 
-  // GSAP scroll-triggered fade-in for feed cards in classic/compact mode
   useGSAPScrollAnimation('.feed-card', { stagger: 0.06 });
 
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -305,8 +350,9 @@ export default function FeedPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-surface-base/80 backdrop-blur-lg border-b border-border">
-        <div className="flex items-center justify-between px-4 h-[53px]">
+      {/* Minimal header - borderless, just controls */}
+      <header className="sticky top-0 z-40 bg-surface-base/95 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-4 h-[56px]">
           <div className="flex items-center gap-2">
             <FeedSourcePicker />
           </div>
@@ -315,7 +361,7 @@ export default function FeedPage() {
             <ViewModeToggle />
             <button
               onClick={() => setShowShortcutHelp(!showShortcutHelp)}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors hidden sm:block"
+              className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-all duration-200 hidden sm:block"
               aria-label="Keyboard shortcuts"
               title="Keyboard shortcuts (?)"
             >
@@ -326,6 +372,13 @@ export default function FeedPage() {
           </div>
         </div>
       </header>
+
+      {/* Stories Row - Instagram-style profile rings (only in grid mode) */}
+      {mode === 'grid' && (
+        <div className="border-b border-border/40">
+          <StoriesRow />
+        </div>
+      )}
 
       {/* Keyboard shortcut help modal */}
       {showShortcutHelp && (

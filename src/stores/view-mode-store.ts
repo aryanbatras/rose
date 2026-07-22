@@ -10,7 +10,7 @@ interface ViewModeState {
 export const useViewModeStore = create<ViewModeState>()(
   persist(
     (set) => ({
-      mode: 'classic',
+      mode: 'grid',
       setMode: (mode) => set({ mode }),
     }),
     { name: 'voiceflow-view-mode' }
