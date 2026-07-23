@@ -16,12 +16,13 @@ import {
   Bookmark,
   Settings,
   Play,
+  List,
 } from 'lucide-react';
 
 interface NavEntry {
   label: string;
   path: string;
-  icon: 'home' | 'search' | 'reels' | 'bell' | 'feeds' | 'groups' | 'spells' | 'bookmarks' | 'profile' | 'settings';
+  icon: 'home' | 'search' | 'reels' | 'bell' | 'feeds' | 'groups' | 'spells' | 'bookmarks' | 'lists' | 'profile' | 'settings';
   badge?: boolean;
   hideEffect?: string;
 }
@@ -33,6 +34,7 @@ const NAV_ENTRIES: NavEntry[] = [
   { label: 'Notifications', path: '/notifications', icon: 'bell', badge: true },
   { label: 'Discover', path: '/discover', icon: 'feeds', hideEffect: 'hide_feeds_nav' },
   { label: 'Groups', path: '/groups', icon: 'groups' },
+  { label: 'Lists', path: '/lists', icon: 'lists' },
   { label: 'Spells', path: '/spells', icon: 'spells' },
   { label: 'Bookmarks', path: '/bookmarks', icon: 'bookmarks' },
   { label: 'Profile', path: '/profile', icon: 'profile', hideEffect: 'hide_profile_nav' },
@@ -48,6 +50,7 @@ function NavIcon({ icon, isActive }: { icon: string; isActive: boolean }) {
     case 'feeds': return <LayoutGrid className={className} />;
     case 'reels': return <Play className={className} />;
     case 'groups': return <Users className={className} />;
+    case 'lists': return <List className={className} />;
     case 'spells': return <Zap className={className} />;
     case 'bookmarks': return <BookmarksIcon />;
     case 'settings': return <Settings className={className} />;

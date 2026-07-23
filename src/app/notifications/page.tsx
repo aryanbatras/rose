@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotifications, useMarkRead } from '@/hooks/useNotifications';
@@ -8,6 +8,26 @@ import { NotificationSkeleton } from '@/components/ui/skeleton';
 import { formatRelativeTime } from '@/lib/time';
 import { Avatar } from '@/components/ui/avatar';
 import { Bell } from 'lucide-react';
+
+type NotificationFilter = 'all' | 'likes' | 'reposts' | 'follows' | 'mentions' | 'replies';
+
+const FILTER_TABS: { key: NotificationFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'likes', label: 'Likes' },
+  { key: 'reposts', label: 'Reposts' },
+  { key: 'follows', label: 'Follows' },
+  { key: 'mentions', label: 'Mentions' },
+  { key: 'replies', label: 'Replies' },
+];
+
+const REASON_MAP: Record<string, NotificationFilter> = {
+  like: 'likes',
+  repost: 'reposts',
+  follow: 'follows',
+  mention: 'mentions',
+  reply: 'replies',
+  quote: 'replies',
+};
 
 function NotificationCard({ item }: { item: any }) {
   const router = useRouter();
@@ -67,6 +87,7 @@ export default function NotificationsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data, isLoading, error } = useNotifications();
   const markRead = useMarkRead();
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>('all');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -83,6 +104,11 @@ export default function NotificationsPage() {
     }
   }, [data]);
 
+  const filteredItems = data?.items?.filter((item: any) => {
+    if (activeFilter === 'all') return true;
+    return REASON_MAP[item.reason] === activeFilter;
+  }) ?? [];
+
   if (authLoading) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-surface-base">
@@ -97,6 +123,22 @@ export default function NotificationsPage() {
         <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
           <h1 className="text-lg font-bold font-heading text-foreground">Notifications</h1>
         </div>
+        {/* Filter tabs */}
+        <div className="flex border-t border-border overflow-x-auto scrollbar-none">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveFilter(tab.key)}
+              className={`flex-1 min-w-0 px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap ${
+                activeFilter === tab.key
+                  ? 'text-brand border-b-2 border-brand'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <main className="mx-auto max-w-lg pb-20">
@@ -106,16 +148,20 @@ export default function NotificationsPage() {
           <div className="py-20 text-center">
             <p className="text-muted-foreground">Failed to load notifications</p>
           </div>
-        ) : !data?.items?.length ? (
+        ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Bell className="h-12 w-12 text-muted-foreground/30 mb-4" strokeWidth={1} />
-            <p className="text-lg font-medium text-foreground">No notifications yet</p>
+            <p className="text-lg font-medium text-foreground">
+              {activeFilter === 'all' ? 'No notifications yet' : `No ${activeFilter} yet`}
+            </p>
             <p className="text-sm text-muted-foreground mt-1">
-              When someone interacts with you, it will show up here
+              {activeFilter === 'all'
+                ? 'When someone interacts with you, it will show up here'
+                : 'Check back later'}
             </p>
           </div>
         ) : (
-          data.items.map((item: any, index: number) => (
+          filteredItems.map((item: any, index: number) => (
             <NotificationCard key={`${item.uri}-${index}`} item={item} />
           ))
         )}

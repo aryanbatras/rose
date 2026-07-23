@@ -15,10 +15,14 @@ import {
   MessageCircle,
   Heart,
   Share2,
+  ShieldOff,
+  VolumeOff,
 } from 'lucide-react';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { DownloadButton } from '@/components/feed/DownloadButton';
 import { ImageCarousel } from '@/components/feed/ImageCarousel';
+import { RichText } from '@/lib/rich-text';
+import { useBlockMute } from '@/hooks/useBlockMute';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -150,6 +154,7 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
   };
 
   const spells = useSpells();
+  const { blockUser, muteUser, loading: blockMuteLoading } = useBlockMute();
   const authorDisplay = item.author.displayName || item.author.handle;
 
   return (
@@ -214,6 +219,34 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
                   <Repeat className="h-4.5 w-4.5" />
                   {reposted ? 'Undo repost' : 'Repost'}
                 </button>
+                {!isOwnPost && (
+                  <>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await muteUser(item.author.did);
+                        setShowMenu(false);
+                      }}
+                      disabled={blockMuteLoading}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
+                    >
+                      <VolumeOff className="h-4.5 w-4.5" />
+                      Mute @{item.author.handle}
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await blockUser(item.author.did);
+                        setShowMenu(false);
+                      }}
+                      disabled={blockMuteLoading}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                    >
+                      <ShieldOff className="h-4.5 w-4.5" />
+                      Block @{item.author.handle}
+                    </button>
+                  </>
+                )}
                 {isOwnPost && (
                   <button
                     onClick={handleDelete}
@@ -231,7 +264,7 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
 
         {/* Post text */}
         <p className="mt-2 text-[17px] text-foreground whitespace-pre-wrap break-words leading-relaxed">
-          {item.record.text}
+          <RichText text={item.record.text} facets={item.record.facets} />
         </p>
 
         {/* Embedded media */}

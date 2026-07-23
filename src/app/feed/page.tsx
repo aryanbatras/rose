@@ -5,12 +5,16 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
+import { useFilterStore } from '@/stores/filter-store';
+import { useDashboardStore } from '@/stores/dashboard-store';
+import { applyFilters } from '@/lib/filters';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
+import { DashboardColumn } from '@/components/feed/DashboardColumn';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { DownloadButton } from '@/components/feed/DownloadButton';
 import { ImageCarousel } from '@/components/feed/ImageCarousel';
-import { Play } from 'lucide-react';
+import { Play, Columns } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
 // ─── Relative Time ───────────────────────────────────────────────
@@ -188,6 +192,8 @@ export default function FeedPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { activeSource } = useFeedSourceStore();
+  const filters = useFilterStore();
+  const { enabled: dashboardEnabled, columns, toggleEnabled: toggleDashboard } = useDashboardStore();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = useFeed(activeSource);
   const isTrending = activeSource?.type === 'trending';
   const [liking, setLiking] = useState<Set<string>>(new Set());
@@ -266,8 +272,15 @@ export default function FeedPage() {
     }
   }
 
+  // Apply content filters and muted words
+  const filteredPosts = applyFilters(uniquePosts, {
+    content: filters.content,
+    mute: filters.mute,
+    display: filters.display,
+  });
+
   // Filter to only media posts (images/video)
-  const mediaPosts = uniquePosts.filter((p) => {
+  const mediaPosts = filteredPosts.filter((p) => {
     const em = p.record.embed;
     if (!em) return false;
     const t = em.$type || '';
@@ -280,10 +293,24 @@ export default function FeedPage() {
       <header className="sticky top-0 z-40 bg-surface-base/95 backdrop-blur-xl border-b border-border">
         <div className="flex items-center justify-between px-4 h-[56px]">
           <FeedSourcePicker />
+          <button
+            onClick={toggleDashboard}
+            className={`p-2 rounded-lg transition-colors ${dashboardEnabled ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
+            title={dashboardEnabled ? 'Single column view' : 'Multi-column dashboard'}
+          >
+            <Columns className="h-5 w-5" />
+          </button>
         </div>
       </header>
 
-      {isTrending ? (
+      {dashboardEnabled ? (
+        /* ─── Multi-Column Dashboard ───────────── */
+        <div className="hidden lg:flex h-[calc(100dvh-56px)]">
+          {columns.map((col) => (
+            <DashboardColumn key={col.id} source={col.source} label={col.label} />
+          ))}
+        </div>
+      ) : isTrending ? (
         <TrendingFeedView />
       ) : (
         <>

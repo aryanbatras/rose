@@ -7,6 +7,7 @@ import { Heart } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
+import { RichText } from '@/lib/rich-text';
 
 interface ThreadNode {
   post?: any;
@@ -138,7 +139,7 @@ function CommentItem({
 
             {/* Comment text */}
             <p className="mt-0.5 text-[15px] text-foreground leading-relaxed whitespace-pre-wrap break-words">
-              {text}
+              <RichText text={text} facets={post.record?.facets} />
             </p>
 
             {/* Like button */}

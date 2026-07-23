@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Plus_Jakarta_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { Providers } from '@/components/providers';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { TrendsSidebar } from '@/components/navigation/TrendsSidebar';
 import { MobileNav } from '@/components/navigation/MobileNav';
@@ -37,26 +38,28 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${plusJakartaSans.variable} antialiased bg-surface-base text-foreground`}
       >
-        <Providers>
-          <div className="app-layout">
-            <Sidebar />
-            <main className="app-main">
-              {children}
-            </main>
-            <TrendsSidebar />
-          </div>
-          <MobileNav />
-        </Providers>
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: 'var(--surface-elevated)',
-              color: 'var(--foreground)',
-              border: '1px solid var(--border)',
-            },
-          }}
-        />
+        <ThemeProvider>
+          <Providers>
+            <div className="app-layout">
+              <Sidebar />
+              <main className="app-main">
+                {children}
+              </main>
+              <TrendsSidebar />
+            </div>
+            <MobileNav />
+          </Providers>
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: 'var(--surface-elevated)',
+                color: 'var(--foreground)',
+                border: '1px solid var(--border)',
+              },
+            }}
+          />
+        </ThemeProvider>
       </body>
     </html>
   );

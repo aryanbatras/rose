@@ -96,3 +96,26 @@ export function useLikes(uri: string, limit = 50) {
     staleTime: 15_000,
   });
 }
+
+export function useLikedPosts(handle: string, limit = 30) {
+  const { session } = useAuth();
+
+  return useInfiniteQuery({
+    queryKey: ['likedPosts', handle],
+    queryFn: async ({ pageParam }) => {
+      if (!session) throw new Error('Not authenticated');
+      const params = new URLSearchParams({
+        actor: handle,
+        limit: String(limit),
+        ...(pageParam ? { cursor: pageParam } : {}),
+      });
+      const res = await fetch(`/api/feed/liked?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch liked posts');
+      return res.json();
+    },
+    getNextPageParam: (lastPage: any) => lastPage?.cursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
+    enabled: !!session && !!handle,
+    staleTime: 30_000,
+  });
+}

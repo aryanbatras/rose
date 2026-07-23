@@ -3,11 +3,14 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { useAuthorFeed } from '@/hooks/useFeed';
+import { useAuthorFeed, useLikedPosts } from '@/hooks/useFeed';
 import { FeedCard } from '@/components/feed/FeedCard';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { ProfileSkeleton, FeedCardSkeleton } from '@/components/ui/skeleton';
-import { useEffect } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import type { FeedItem } from '@/types/atproto';
+
+type ProfileTab = 'posts' | 'replies' | 'media' | 'likes';
 
 export default function ProfilePage() {
   const params = useParams();
@@ -15,7 +18,9 @@ export default function ProfilePage() {
   const { isAuthenticated, isLoading: authLoading, session } = useAuth();
   const handle = decodeURIComponent(params.handle as string);
   const { data: profile, isLoading: profileLoading, error: profileError } = useProfile(handle);
-  const { data: feedData, isLoading: feedLoading } = useAuthorFeed(handle);
+  const { data: feedData, isLoading: feedLoading, fetchNextPage: fetchNextFeed, hasNextPage: hasNextFeed, isFetchingNextPage: isFetchingNextFeed } = useAuthorFeed(handle);
+  const { data: likedData, isLoading: likedLoading, fetchNextPage: fetchNextLiked, hasNextPage: hasNextLiked, isFetchingNextPage: isFetchingNextLiked } = useLikedPosts(handle);
+  const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
 
   const isOwnProfile = session?.handle === handle || session?.did === profile?.did;
 
@@ -24,6 +29,26 @@ export default function ProfilePage() {
       router.replace('/login');
     }
   }, [isAuthenticated, authLoading, router]);
+
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (activeTab === 'likes' ? isFetchingNextLiked : isFetchingNextFeed) return;
+    if (activeTab === 'likes' ? !hasNextLiked : !hasNextFeed) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          if (activeTab === 'likes') fetchNextLiked();
+          else fetchNextFeed();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeTab, hasNextFeed, hasNextLiked, isFetchingNextFeed, isFetchingNextLiked, fetchNextFeed, fetchNextLiked]);
 
   if (authLoading || profileLoading) {
     return (
@@ -53,7 +78,57 @@ export default function ProfilePage() {
     );
   }
 
-  const posts = feedData?.pages.flatMap((page: any) => page.items || []) ?? [];
+  const allPosts = feedData?.pages.flatMap((page: any) => page.items || []) ?? [];
+  const allLiked = likedData?.pages.flatMap((page: any) => page.items || []) ?? [];
+
+  // Deduplicate
+  const seen = new Set<string>();
+  const posts: FeedItem[] = [];
+  for (const p of allPosts) {
+    if (!seen.has(p.uri)) { seen.add(p.uri); posts.push(p); }
+  }
+
+  // Filter by tab
+  const replies = posts.filter((p) => !!p.reply);
+  const mediaPosts = posts.filter((p) => {
+    const em = p.record.embed;
+    if (!em) return false;
+    const t = em.$type || '';
+    return t.includes('images') || t.includes('video');
+  });
+
+  const tabs: { key: ProfileTab; label: string }[] = [
+    { key: 'posts', label: 'Posts' },
+    { key: 'replies', label: 'Replies' },
+    { key: 'media', label: 'Media' },
+    { key: 'likes', label: 'Likes' },
+  ];
+
+  const renderTabContent = () => {
+    if (activeTab === 'likes') {
+      if (likedLoading) return Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />);
+      if (allLiked.length === 0) return <div className="py-16 text-center"><p className="text-muted-foreground">No liked posts yet</p></div>;
+      return allLiked.map((item: any, index: number) => (
+        <FeedCard key={`${item.uri}-${index}`} item={item} />
+      ));
+    }
+
+    if (feedLoading) return Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />);
+
+    let items: FeedItem[];
+    if (activeTab === 'replies') items = replies;
+    else if (activeTab === 'media') items = mediaPosts;
+    else items = posts;
+
+    if (items.length === 0) {
+      const emptyMsg = activeTab === 'replies' ? 'No replies yet' : activeTab === 'media' ? 'No media posts yet' : 'No posts yet';
+      return <div className="py-16 text-center"><p className="text-muted-foreground">{emptyMsg}</p></div>;
+    }
+
+    return items.map((item: any, index: number) => (
+      <FeedCard key={`${item.uri}-${index}`} item={item} hideAvatar={isOwnProfile} />
+    ));
+  };
 
   return (
     <div className="min-h-[100dvh] bg-surface-base">
@@ -78,22 +153,31 @@ export default function ProfilePage() {
 
         {/* Tabs */}
         <div className="flex border-b border-border">
-          <button className="flex-1 border-b-2 border-brand px-4 py-3 text-sm font-semibold text-foreground">
-            Posts
-          </button>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                activeTab === tab.key
+                  ? 'border-brand text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Posts */}
-        {feedLoading ? (
-          Array.from({ length: 3 }).map((_, i) => <FeedCardSkeleton key={i} />)
-        ) : posts.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-muted-foreground">No posts yet</p>
+        {/* Content */}
+        {renderTabContent()}
+
+        {/* Infinite scroll sentinel */}
+        <div ref={sentinelRef} className="h-4" />
+
+        {(activeTab === 'likes' ? isFetchingNextLiked : isFetchingNextFeed) && (
+          <div className="mx-auto max-w-lg pb-8">
+            {Array.from({ length: 2 }).map((_, i) => <FeedCardSkeleton key={i} />)}
           </div>
-        ) : (
-          posts.map((item: any, index: number) => (
-            <FeedCard key={`${item.uri}-${index}`} item={item} hideAvatar={isOwnProfile} />
-          ))
         )}
       </main>
     </div>
