@@ -56,7 +56,8 @@ function triggerDownload(blob: Blob, filename: string) {
 }
 
 export async function downloadImage(url: string, filename: string): Promise<void> {
-  const res = await fetch(url);
+  const proxyUrl = `/api/media/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+  const res = await fetch(proxyUrl);
   if (!res.ok) throw new Error('Failed to fetch image');
   const blob = await res.blob();
   triggerDownload(blob, filename);
@@ -66,11 +67,14 @@ export async function downloadVideo(
   playlistUrl: string,
   filename: string
 ): Promise<void> {
-  const res = await fetch(playlistUrl);
+  const res = await fetch('/api/media/download-video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playlistUrl, filename }),
+  });
   if (!res.ok) throw new Error('Failed to fetch video');
   const blob = await res.blob();
   triggerDownload(blob, filename);
-  toast.success('Video saved');
 }
 
 export async function downloadMedia(item: FeedItem): Promise<void> {
@@ -95,5 +99,6 @@ export async function downloadMedia(item: FeedItem): Promise<void> {
     const filename = generateFilename(item, undefined, 'mp4');
     toast('Downloading video...');
     await downloadVideo(urls.videoPlaylist, filename);
+    toast.success('Video saved');
   }
 }

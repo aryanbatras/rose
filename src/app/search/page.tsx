@@ -218,9 +218,12 @@ export default function SearchPage() {
                     const authorName = item.author?.displayName || item.author?.handle || '';
 
                     return (
-                      <button
+                      <div
                         key={item.uri}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/feed/${encodeURIComponent(item.uri)}`); }}
                         className="relative aspect-square overflow-hidden rounded-2xl bg-surface-elevated group cursor-pointer shadow-sm"
                       >
                         {thumbUrl ? (
@@ -258,7 +261,7 @@ export default function SearchPage() {
                             <Image className="h-3 w-3 text-white" />
                           </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -328,9 +331,12 @@ export default function SearchPage() {
                           const authorName = item.author?.displayName || item.author?.handle || '';
 
                           return thumbUrl ? (
-                            <button
+                            <div
                               key={`${item.uri}-${index}`}
+                              role="button"
+                              tabIndex={0}
                               onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/feed/${encodeURIComponent(item.uri)}`); }}
                               className="relative aspect-square overflow-hidden rounded-2xl bg-surface-elevated group cursor-pointer shadow-sm"
                             >
                               <img src={thumbUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" loading="lazy" />
@@ -360,7 +366,7 @@ export default function SearchPage() {
                                   <Image className="h-3 w-3 text-white" />
                                 </div>
                               )}
-                            </button>
+                            </div>
                           ) : null;
                         })}
                       </div>
