@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedSearch, useSearchPosts, useSearchActors } from '@/hooks/useSearch';
 import { Avatar } from '@/components/ui/avatar';
 import { Play, Image, LayoutGrid, Loader2 } from 'lucide-react';
+import { DownloadButton } from '@/components/feed/DownloadButton';
 
 export default function SearchPage() {
   const router = useRouter();
@@ -236,6 +237,9 @@ export default function SearchPage() {
                                 <div className="flex items-center gap-1.5 text-[10px] text-white/70">
                                   <span>❤ {item.likeCount || 0}</span>
                                 </div>
+                                <div className="absolute bottom-2.5 right-2.5">
+                                  <DownloadButton item={item} variant="light" className="[&_svg]:h-4 [&_svg]:w-4" />
+                                </div>
                               </div>
                             </div>
                           </>
@@ -341,6 +345,9 @@ export default function SearchPage() {
                                   <div className="flex items-center gap-1.5 text-[10px] text-white/70">
                                     <span>❤ {item.likeCount || 0}</span>
                                   </div>
+                                </div>
+                                <div className="absolute bottom-2.5 right-2.5">
+                                  <DownloadButton item={item} variant="light" className="[&_svg]:h-4 [&_svg]:w-4" />
                                 </div>
                               </div>
                               {isVideo && (

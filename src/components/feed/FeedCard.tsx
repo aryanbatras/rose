@@ -17,6 +17,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
+import { DownloadButton } from '@/components/feed/DownloadButton';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -353,6 +354,8 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
             </button>
 
             <BookmarkButton item={item} />
+
+            <DownloadButton item={item} />
           </div>
         )}
       </div>

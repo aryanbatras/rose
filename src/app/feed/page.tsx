@@ -8,6 +8,7 @@ import { useFeedSourceStore } from '@/stores/feed-source-store';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
+import { DownloadButton } from '@/components/feed/DownloadButton';
 import { Play } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
@@ -152,7 +153,10 @@ function PostCard({
           >
             {item.likeCount.toLocaleString()} {item.likeCount === 1 ? 'like' : 'likes'}
           </button>
-          <BookmarkButton item={item} />
+          <div className="flex items-center gap-2">
+            <DownloadButton item={item} />
+            <BookmarkButton item={item} />
+          </div>
         </div>
       )}
 
