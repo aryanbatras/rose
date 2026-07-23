@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -8,13 +8,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { ArrowLeft, Camera, Keyboard, Eye, Bell, Shield, Palette, X, RotateCcw, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Camera, Eye, Bell, Shield, Palette, X, ChevronRight } from 'lucide-react';
 import { useFilterStore } from '@/stores/filter-store';
-import { useShortcutsStore } from '@/stores/shortcuts-store';
 import { useViewModeStore } from '@/stores/view-mode-store';
 import { useThemeStore } from '@/stores/theme-store';
 
-type SettingsSection = 'profile' | 'shortcuts' | 'filters' | 'muted' | 'display' | 'theme' | 'about';
+type SettingsSection = 'filters' | 'muted' | 'display' | 'theme' | 'about';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -30,23 +29,10 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<SettingsSection | null>(null);
 
-  // Filter store
-  const { content, mute, display, setContent, setMute, addMutedWord, removeMutedWord, setDisplay } = useFilterStore();
-
-  // Shortcuts store
-  const { enabled: shortcutsEnabled, bindings, setBinding, resetBindings, toggleEnabled } = useShortcutsStore();
-
-  // View mode store
+  const { content, mute, display, setContent, addMutedWord, removeMutedWord, setDisplay } = useFilterStore();
   const { mode: viewMode, setMode: setViewMode } = useViewModeStore();
-
-  // Theme store
   const { theme: currentTheme, setTheme } = useThemeStore();
-
-  // Muted word input
   const [newMutedWord, setNewMutedWord] = useState('');
-
-  // Editing shortcut
-  const [editingShortcut, setEditingShortcut] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -56,25 +42,17 @@ export default function SettingsPage() {
   }, [profile]);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
+    if (!authLoading && !isAuthenticated) router.replace('/login');
   }, [isAuthenticated, authLoading, router]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-    }
+    if (file) { setAvatarFile(file); setAvatarPreview(URL.createObjectURL(file)); }
   };
 
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setBannerFile(file);
-      setBannerPreview(URL.createObjectURL(file));
-    }
+    if (file) { setBannerFile(file); setBannerPreview(URL.createObjectURL(file)); }
   };
 
   const handleSave = async () => {
@@ -96,39 +74,16 @@ export default function SettingsPage() {
         const data = await res.json();
         toast.error(data.error || 'Failed to update profile');
       }
-    } catch {
-      toast.error('Connection error');
-    } finally {
-      setIsSaving(false);
-    }
+    } catch { toast.error('Connection error'); }
+    finally { setIsSaving(false); }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    toast.success('Logged out');
-    router.push('/login');
-  };
+  const handleLogout = async () => { await logout(); toast.success('Logged out'); router.push('/login'); };
 
   const handleAddMutedWord = () => {
     const word = newMutedWord.trim();
-    if (word) {
-      addMutedWord(word);
-      setNewMutedWord('');
-      toast.success(`Muted "${word}"`);
-    }
+    if (word) { addMutedWord(word); setNewMutedWord(''); toast.success(`Muted "${word}"`); }
   };
-
-  const handleShortcutEdit = useCallback((id: string) => {
-    setEditingShortcut(id);
-    const handler = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setBinding(id, e.key, e.ctrlKey || e.metaKey, e.shiftKey, e.altKey);
-      setEditingShortcut(null);
-      document.removeEventListener('keydown', handler, true);
-    };
-    document.addEventListener('keydown', handler, true);
-  }, [setBinding]);
 
   if (authLoading) {
     return (
@@ -138,7 +93,6 @@ export default function SettingsPage() {
     );
   }
 
-  // Section view
   if (activeSection) {
     return (
       <div className="min-h-[100dvh] bg-surface-base">
@@ -148,8 +102,7 @@ export default function SettingsPage() {
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h1 className="ml-3 text-lg font-bold font-heading text-foreground capitalize">
-              {activeSection === 'shortcuts' ? 'Keyboard Shortcuts' :
-               activeSection === 'filters' ? 'Content Filters' :
+              {activeSection === 'filters' ? 'Content Filters' :
                activeSection === 'muted' ? 'Muted Words' :
                activeSection === 'display' ? 'Display' :
                activeSection === 'theme' ? 'Theme' :
@@ -159,54 +112,6 @@ export default function SettingsPage() {
         </header>
 
         <main className="mx-auto max-w-lg pb-20">
-          {activeSection === 'shortcuts' && (
-            <div className="px-4 py-4">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-muted-foreground">Toggle keyboard shortcuts</p>
-                <button
-                  onClick={toggleEnabled}
-                  className={`relative w-12 h-7 rounded-full transition-colors ${shortcutsEnabled ? 'bg-brand' : 'bg-muted'}`}
-                >
-                  <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${shortcutsEnabled ? 'left-6' : 'left-1'}`} />
-                </button>
-              </div>
-
-              {shortcutsEnabled && (
-                <>
-                  <div className="space-y-1">
-                    {bindings.map((binding) => (
-                      <div key={binding.id} className="flex items-center justify-between py-3 border-b border-border">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{binding.label}</p>
-                          <p className="text-xs text-muted-foreground">{binding.description}</p>
-                        </div>
-                        <button
-                          onClick={() => handleShortcutEdit(binding.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                            editingShortcut === binding.id
-                              ? 'bg-brand text-white animate-pulse'
-                              : 'bg-muted text-foreground hover:bg-accent'
-                          }`}
-                        >
-                          {editingShortcut === binding.id
-                            ? 'Press a key...'
-                            : `${binding.ctrl ? '⌘' : ''}${binding.shift ? '⇧' : ''}${binding.alt ? '⌥' : ''}${binding.key}`}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => { resetBindings(); toast.success('Shortcuts reset to defaults'); }}
-                    className="mt-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Reset to defaults
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
           {activeSection === 'filters' && (
             <div className="px-4 py-4 space-y-6">
               <div>
@@ -217,7 +122,6 @@ export default function SettingsPage() {
                     { key: 'hideReplies' as const, label: 'Hide replies' },
                     { key: 'mediaOnly' as const, label: 'Media only' },
                     { key: 'videoOnly' as const, label: 'Video only' },
-                    { key: 'textOnly' as const, label: 'Text only' },
                   ].map(({ key, label }) => (
                     <div key={key} className="flex items-center justify-between py-2">
                       <span className="text-sm text-foreground">{label}</span>
@@ -333,11 +237,7 @@ export default function SettingsPage() {
                       <p className="text-sm font-medium text-foreground">{label}</p>
                       <p className="text-xs text-muted-foreground">{desc}</p>
                     </div>
-                    <div className={`w-5 h-5 rounded-full border-2 ${
-                      currentTheme === key
-                        ? 'border-brand bg-brand'
-                        : 'border-border'
-                    }`} />
+                    <div className={`w-5 h-5 rounded-full border-2 ${currentTheme === key ? 'border-brand bg-brand' : 'border-border'}`} />
                   </button>
                 ))}
               </div>
@@ -350,13 +250,9 @@ export default function SettingsPage() {
                 <h2 className="text-2xl font-bold font-heading" style={{ color: 'var(--brand)' }}>Rose</h2>
                 <p className="text-sm text-muted-foreground mt-1">v1.0.0</p>
               </div>
-              <p className="text-sm text-muted-foreground text-center">
-                A social network built on the AT Protocol.
-              </p>
+              <p className="text-sm text-muted-foreground text-center">A social network built on the AT Protocol.</p>
               <div className="border-t border-border pt-4 mt-4">
-                <p className="text-xs text-muted-foreground text-center">
-                  Powered by Bluesky · AT Protocol
-                </p>
+                <p className="text-xs text-muted-foreground text-center">Powered by Bluesky · AT Protocol</p>
               </div>
             </div>
           )}
@@ -365,7 +261,6 @@ export default function SettingsPage() {
     );
   }
 
-  // Main settings view
   return (
     <div className="min-h-[100dvh] bg-surface-base">
       <header className="sticky top-0 z-40 border-b border-border bg-surface-base/80 backdrop-blur-lg">
@@ -378,7 +273,6 @@ export default function SettingsPage() {
       </header>
 
       <main className="mx-auto max-w-lg pb-20">
-        {/* Profile Editor */}
         <section className="px-4 pt-4">
           <div className="relative h-32 rounded-xl bg-muted overflow-hidden mb-4">
             {(bannerPreview || profile?.banner) && (
@@ -417,12 +311,10 @@ export default function SettingsPage() {
           </Button>
         </section>
 
-        {/* Settings sections */}
         <section className="mt-6 px-4">
           <h2 className="text-sm font-semibold text-foreground mb-2">Preferences</h2>
           <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
             {[
-              { key: 'shortcuts' as const, icon: Keyboard, label: 'Keyboard Shortcuts', desc: 'Customize key bindings' },
               { key: 'filters' as const, icon: Shield, label: 'Content Filters', desc: 'Hide reposts, media only, etc.' },
               { key: 'muted' as const, icon: Bell, label: 'Muted Words', desc: `${mute.mutedWords.length} words muted` },
               { key: 'display' as const, icon: Eye, label: 'Display', desc: 'Density, metrics, view mode' },
@@ -444,7 +336,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Account */}
         <section className="mt-6 px-4 py-4 border-t border-border">
           <h2 className="text-sm font-semibold text-foreground mb-3">Account</h2>
           <div className="space-y-1">
@@ -459,7 +350,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* About */}
         <section className="px-4 py-4 border-t border-border">
           <button onClick={() => setActiveSection('about')} className="w-full flex items-center justify-between py-2 hover:text-brand transition-colors">
             <span className="text-sm text-foreground">About Rose</span>
@@ -467,7 +357,6 @@ export default function SettingsPage() {
           </button>
         </section>
 
-        {/* Logout */}
         <section className="px-4 py-6 border-t border-border">
           <Button variant="destructive" className="w-full" onClick={handleLogout}>Log Out</Button>
         </section>

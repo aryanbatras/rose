@@ -14,7 +14,7 @@ import { DashboardColumn } from '@/components/feed/DashboardColumn';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { DownloadButton } from '@/components/feed/DownloadButton';
 import { ImageCarousel } from '@/components/feed/ImageCarousel';
-import { Play, Columns } from 'lucide-react';
+import { Play, Columns, LayoutGrid } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
 // ─── Relative Time ───────────────────────────────────────────────
@@ -197,6 +197,7 @@ export default function FeedPage() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = useFeed(activeSource);
   const isTrending = activeSource?.type === 'trending';
   const [liking, setLiking] = useState<Set<string>>(new Set());
+  const [gridMode, setGridMode] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.replace('/login');
@@ -293,13 +294,22 @@ export default function FeedPage() {
       <header className="sticky top-0 z-40 bg-surface-base/95 backdrop-blur-xl border-b border-border">
         <div className="flex items-center justify-between px-4 h-[56px]">
           <FeedSourcePicker />
-          <button
-            onClick={toggleDashboard}
-            className={`p-2 rounded-lg transition-colors ${dashboardEnabled ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
-            title={dashboardEnabled ? 'Single column view' : 'Multi-column dashboard'}
-          >
-            <Columns className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setGridMode(!gridMode)}
+              className={`p-2 rounded-lg transition-colors ${gridMode ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
+              title={gridMode ? 'Classic view' : 'Grid view'}
+            >
+              <LayoutGrid className="h-5 w-5" />
+            </button>
+            <button
+              onClick={toggleDashboard}
+              className={`p-2 rounded-lg transition-colors ${dashboardEnabled ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
+              title={dashboardEnabled ? 'Single column view' : 'Multi-column dashboard'}
+            >
+              <Columns className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -340,6 +350,45 @@ export default function FeedPage() {
               <p className="text-lg font-medium text-foreground">No posts to show</p>
               <p className="text-sm text-muted-foreground mt-1">Follow some users or pick a feed</p>
             </div>
+          ) : gridMode ? (
+            /* ─── Grid View: 2-column image/video only ── */
+            <>
+              <div className="grid grid-cols-2 gap-0.5">
+                {mediaPosts.map((item) => {
+                  const em = item.record.embed;
+                  const images = em?.images || [];
+                  const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
+                  const isVideo = (em?.$type || '').includes('video');
+
+                  return (
+                    <div
+                      key={item.uri}
+                      onClick={() => router.push(`/feed/${encodeURIComponent(item.uri)}`)}
+                      className="relative aspect-square overflow-hidden bg-surface-elevated cursor-pointer"
+                    >
+                      {thumbUrl ? (
+                        <img src={thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-brand/5">
+                          <Play className="h-8 w-8 text-brand/40" strokeWidth={1.5} />
+                        </div>
+                      )}
+                      {isVideo && (
+                        <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                          <Play className="h-3 w-3 text-white fill-white ml-0.5" strokeWidth={0} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div ref={sentinelRef} className="h-4" />
+              {isFetchingNextPage && (
+                <div className="flex items-center justify-center py-6">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-brand/70" />
+                </div>
+              )}
+            </>
           ) : (
             <>
               <div className="mx-auto max-w-3xl pb-20">

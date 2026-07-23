@@ -399,10 +399,17 @@ function FeedList({
   onSubscribe: (feed: FeedInfo) => void;
   onUnsubscribe: (uri: string) => void;
 }) {
+  const router = useRouter();
+  const { setActiveSource } = useFeedSourceStore();
+
+  const handleViewFeed = (feed: FeedInfo) => {
+    setActiveSource({ type: 'custom', uri: feed.uri, label: feed.label });
+    router.push('/feed');
+  };
+
   return (
     <div className="space-y-1">
       {feeds.map((feed) => {
-        const subbed = isSubscribed(feed.uri);
         return (
           <div
             key={feed.uri}
@@ -437,21 +444,12 @@ function FeedList({
               </p>
             </div>
 
-            {subbed ? (
-              <button
-                onClick={() => onUnsubscribe(feed.uri)}
-                className="px-4 py-1.5 rounded-full border border-border text-xs font-medium text-muted-foreground hover:bg-accent transition-colors shrink-0"
-              >
-                Added
-              </button>
-            ) : (
-              <button
-                onClick={() => onSubscribe(feed)}
-                className="px-4 py-1.5 rounded-full bg-brand text-white text-xs font-semibold hover:bg-brand-hover transition-colors shrink-0"
-              >
-                + Add
-              </button>
-            )}
+            <button
+              onClick={() => handleViewFeed(feed)}
+              className="px-4 py-1.5 rounded-full bg-brand text-white text-xs font-semibold hover:bg-brand-hover transition-colors shrink-0"
+            >
+              View
+            </button>
           </div>
         );
       })}

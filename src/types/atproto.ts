@@ -223,12 +223,3 @@ export interface FeedSource {
   label: string;
   icon?: string;
 }
-
-// ─── Keyboard Shortcut ────────────────────────────
-export interface Shortcut {
-  key: string;
-  label: string;
-  description: string;
-  ctrl?: boolean;
-  shift?: boolean;
-}
