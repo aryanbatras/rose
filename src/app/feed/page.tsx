@@ -9,6 +9,7 @@ import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { DownloadButton } from '@/components/feed/DownloadButton';
+import { ImageCarousel } from '@/components/feed/ImageCarousel';
 import { Play } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
@@ -112,15 +113,22 @@ function PostCard({
       >
         {thumbUrl ? (
           <>
-            <img
-              src={thumbUrl}
-              alt=""
-              className="w-full max-h-[90vh] object-contain bg-surface-elevated select-none"
-              loading="lazy"
-              draggable={false}
-            />
+            {images.length > 1 ? (
+              <ImageCarousel
+                images={images.map((img: any) => ({ thumb: img.thumb, fullsize: img.fullsize, alt: img.alt || '' }))}
+                className="w-full max-h-[90vh]"
+              />
+            ) : (
+              <img
+                src={thumbUrl}
+                alt=""
+                className="w-full max-h-[90vh] object-contain bg-surface-elevated select-none"
+                loading="lazy"
+                draggable={false}
+              />
+            )}
             {/* Time overlay — soft pill top-right */}
-            <span className="absolute top-3 right-3 text-[11px] font-medium text-white/80 bg-black/25 px-2.5 py-1 rounded-full backdrop-blur-sm">
+            <span className="absolute top-3 right-3 text-[11px] font-medium text-white/80 bg-black/25 px-2.5 py-1 rounded-full backdrop-blur-sm z-10">
               {timeAgo}
             </span>
             {isVideo && (

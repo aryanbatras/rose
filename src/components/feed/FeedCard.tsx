@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { DownloadButton } from '@/components/feed/DownloadButton';
+import { ImageCarousel } from '@/components/feed/ImageCarousel';
 import type { FeedItem } from '@/types/atproto';
 
 interface FeedCardProps {
@@ -241,17 +242,24 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
 
           if ((t.includes('images') || t.includes('image')) && em.images?.length) {
             const isMulti = em.images.length > 1;
-            return (
-              <div className={`mt-3 overflow-hidden rounded-2xl ${isMulti ? 'grid grid-cols-2 gap-1' : ''}`}>
-                {em.images.map((img: any, i: number) => (
-                  <img
-                    key={i}
-                    src={img.thumb || img.fullsize}
-                    alt={img.alt || ''}
-                    className="w-full object-cover max-h-96"
-                    loading="lazy"
+            if (isMulti) {
+              return (
+                <div className="mt-3 overflow-hidden rounded-2xl">
+                  <ImageCarousel
+                    images={em.images.map((img: any) => ({ thumb: img.thumb, fullsize: img.fullsize, alt: img.alt || '' }))}
+                    className="max-h-96"
                   />
-                ))}
+                </div>
+              );
+            }
+            return (
+              <div className="mt-3 overflow-hidden rounded-2xl">
+                <img
+                  src={em.images[0].thumb || em.images[0].fullsize}
+                  alt={em.images[0].alt || ''}
+                  className="w-full object-cover max-h-96"
+                  loading="lazy"
+                />
               </div>
             );
           }
