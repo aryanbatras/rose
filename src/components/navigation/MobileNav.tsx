@@ -10,7 +10,6 @@ import {
   Plus,
   Bell,
   Menu,
-  X,
   Play,
   Users,
   Bookmark,
@@ -22,23 +21,24 @@ import {
 import { useSpells } from '@/hooks/useSpells';
 
 const MENU_ITEMS = [
-  { label: 'Notifications', path: '/notifications', icon: Bell, badge: true },
+  { label: 'Notifications', path: '/notifications', icon: Bell, badge: true, guestHidden: true },
   { label: 'Discover', path: '/discover', icon: LayoutGrid },
-  { label: 'Groups', path: '/groups', icon: Users },
-  { label: 'Spells', path: '/spells', icon: Zap },
-  { label: 'Bookmarks', path: '/bookmarks', icon: Bookmark },
-  { label: 'Settings', path: '/settings', icon: Settings },
+  { label: 'Groups', path: '/groups', icon: Users, guestHidden: true },
+  { label: 'Spells', path: '/spells', icon: Zap, guestHidden: true },
+  { label: 'Bookmarks', path: '/bookmarks', icon: Bookmark, guestHidden: true },
+  { label: 'Settings', path: '/settings', icon: Settings, guestHidden: true },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, isAuthenticated } = useAuth();
   const { data: unreadData } = useUnreadCount();
   const unread = (unreadData as any)?.count ?? 0;
   const spells = useSpells();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const isGuest = !isAuthenticated;
   const profilePath = session?.handle ? `/profile/${session.handle}` : '/login';
 
   const navigate = useCallback((path: string) => {
@@ -46,7 +46,6 @@ export function MobileNav() {
     router.push(path);
   }, [router]);
 
-  // Lock body scroll when menu is open
   useEffect(() => {
     if (menuOpen) {
       document.body.style.overflow = 'hidden';
@@ -63,10 +62,10 @@ export function MobileNav() {
   const isHome = pathname === '/feed' || pathname === '/';
   const isSearch = pathname === '/search';
   const isReels = pathname === '/reels';
-  const isProfile = pathname?.startsWith('/profile');
 
   const filteredMenuItems = MENU_ITEMS.filter((item) => {
     if (item.path === '/discover' && spells.hideFeedsNav) return false;
+    if (isGuest && item.guestHidden) return false;
     return true;
   });
 
@@ -92,25 +91,39 @@ export function MobileNav() {
             <Search className={`h-6 w-6 ${isSearch ? 'text-brand stroke-[2.5]' : 'text-muted-foreground'}`} />
           </button>
 
-          {/* Compose (center) */}
-          <button
-            onClick={() => navigate('/compose')}
-            className="flex items-center justify-center -mt-4"
-            aria-label="Compose"
-          >
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-black shadow-lg">
-              <Plus className="h-6 w-6" />
-            </div>
-          </button>
+          {/* Compose / Sign in (center) */}
+          {isGuest ? (
+            <button
+              onClick={() => navigate('/login')}
+              className="flex items-center justify-center -mt-4"
+              aria-label="Sign in"
+            >
+              <div className="flex h-9 items-center rounded-full bg-brand px-4 text-xs font-semibold text-white shadow-lg">
+                Sign in
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/compose')}
+              className="flex items-center justify-center -mt-4"
+              aria-label="Compose"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-black shadow-lg">
+                <Plus className="h-6 w-6" />
+              </div>
+            </button>
+          )}
 
           {/* Reels */}
-          <button
-            onClick={() => navigate('/reels')}
-            className="flex flex-col items-center justify-center px-4 py-1"
-            aria-label="Reels"
-          >
-            <Play className={`h-6 w-6 ${isReels ? 'text-brand stroke-[2.5]' : 'text-muted-foreground'}`} />
-          </button>
+          {!isGuest && (
+            <button
+              onClick={() => navigate('/reels')}
+              className="flex flex-col items-center justify-center px-4 py-1"
+              aria-label="Reels"
+            >
+              <Play className={`h-6 w-6 ${isReels ? 'text-brand stroke-[2.5]' : 'text-muted-foreground'}`} />
+            </button>
+          )}
 
           {/* Menu */}
           <button
@@ -126,40 +139,31 @@ export function MobileNav() {
       {/* Menu Drawer */}
       {menuOpen && (
         <div className="sm:hidden fixed inset-0 z-[60]">
-          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setMenuOpen(false)}
           />
 
-          {/* Drawer */}
           <div className="absolute bottom-0 left-0 right-0 bg-surface-base rounded-t-2xl shadow-2xl border-t border-border animate-slide-up">
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-2">
               <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
             </div>
 
-            {/* Profile shortcut */}
             <button
               onClick={() => navigate(profilePath)}
               className="flex items-center gap-4 w-full px-6 py-3.5 hover:bg-accent/50 transition-colors"
             >
               <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center overflow-hidden">
-                {session?.handle ? (
-                  <User className="h-5 w-5 text-muted-foreground" />
-                ) : (
-                  <User className="h-5 w-5 text-muted-foreground" />
-                )}
+                <User className="h-5 w-5 text-muted-foreground" />
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-foreground">Profile</p>
+                <p className="text-sm font-semibold text-foreground">{isGuest ? 'Sign in' : 'Profile'}</p>
                 <p className="text-xs text-muted-foreground">@{session?.handle || 'login'}</p>
               </div>
             </button>
 
             <div className="border-t border-border/50 mx-4" />
 
-            {/* Menu items */}
             <div className="py-2">
               {filteredMenuItems.map((item) => {
                 const Icon = item.icon;
@@ -184,7 +188,6 @@ export function MobileNav() {
               })}
             </div>
 
-            {/* Safe area padding */}
             <div className="h-6" />
           </div>
         </div>

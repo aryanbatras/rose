@@ -10,11 +10,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace('/feed');
-      } else {
-        router.replace('/login');
-      }
+      router.replace('/feed');
     }
   }, [isAuthenticated, isLoading, router]);
 

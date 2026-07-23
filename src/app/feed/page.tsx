@@ -4,6 +4,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
+import { useGuestFeed } from '@/hooks/useGuest';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
 import { useFilterStore } from '@/stores/filter-store';
 import { applyFilters } from '@/lib/filters';
@@ -37,18 +38,20 @@ function PostCard({
   item,
   onLikeToggle,
   liking,
+  isGuest,
 }: {
   item: FeedItem;
   onLikeToggle: (item: FeedItem) => void;
   liking: Set<string>;
+  isGuest?: boolean;
 }) {
   const router = useRouter();
-  const em = item.record.embed;
+  const em = item.record?.embed;
   const images = em?.images || [];
   const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
-  const caption = item.record.text || '';
-  const displayName = item.author.displayName || item.author.handle;
-  const handle = item.author.handle;
+  const caption = item.record?.text || '';
+  const displayName = item.author?.displayName || item.author?.handle || '';
+  const handle = item.author?.handle || '';
   const isVideo = (em?.$type || '').includes('video');
   const isLiked = !!item.viewer?.like;
   const isPending = liking.has(item.uri);
@@ -92,7 +95,7 @@ function PostCard({
           className="h-8 w-8 rounded-full overflow-hidden shrink-0"
           style={{ boxShadow: '0 0 0 2px white, 0 0 0 4px var(--brand-muted)' }}
         >
-          {item.author.avatar ? (
+          {item.author?.avatar ? (
             <img src={item.author.avatar} alt="" className="h-full w-full object-cover" />
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-brand/10 to-brand/5 flex items-center justify-center text-sm font-semibold text-brand/60">
@@ -164,8 +167,8 @@ function PostCard({
             {item.likeCount.toLocaleString()} {item.likeCount === 1 ? 'like' : 'likes'}
           </button>
           <div className="flex items-center gap-2">
-            <DownloadButton item={item} />
-            <BookmarkButton item={item} />
+            {!isGuest && <DownloadButton item={item} />}
+            {!isGuest && <BookmarkButton item={item} />}
           </div>
         </div>
       )}
@@ -191,14 +194,21 @@ export default function FeedPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { activeSource } = useFeedSourceStore();
   const filters = useFilterStore();
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = useFeed(activeSource);
+
+  // Use guest feed when not authenticated
+  const guestFeed = useGuestFeed();
+  const authFeed = useFeed(activeSource);
+
+  const isGuest = !authLoading && !isAuthenticated;
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = isGuest
+    ? guestFeed
+    : authFeed;
+
   const isTrending = activeSource?.type === 'trending';
   const [liking, setLiking] = useState<Set<string>>(new Set());
   const [gridMode, setGridMode] = useState(false);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.replace('/login');
-  }, [isAuthenticated, authLoading, router]);
+  // No redirect — guests can browse
 
   // Infinite scroll — observe the last sentinel element
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -220,6 +230,10 @@ export default function FeedPage() {
 
   const handleLikeToggle = useCallback(
     async (item: FeedItem) => {
+      if (isGuest) {
+        router.push('/login');
+        return;
+      }
       if (liking.has(item.uri)) return;
       setLiking((prev) => new Set(prev).add(item.uri));
 
@@ -248,7 +262,7 @@ export default function FeedPage() {
         });
       }
     },
-    [liking, refetch]
+    [isGuest, liking, refetch, router]
   );
 
   if (authLoading) {
@@ -277,9 +291,9 @@ export default function FeedPage() {
     display: filters.display,
   });
 
-  // Filter to only media posts (images/video)
+  // Filter to only media posts (images/video) — with null safety
   const mediaPosts = filteredPosts.filter((p) => {
-    const em = p.record.embed;
+    const em = p.record?.embed;
     if (!em) return false;
     const t = em.$type || '';
     return t.includes('images') || t.includes('video');
@@ -337,12 +351,12 @@ export default function FeedPage() {
               <div className="px-2 pt-2">
                 <div className="grid grid-cols-2 gap-2">
                   {mediaPosts.map((item) => {
-                    const em = item.record.embed;
+                    const em = item.record?.embed;
                     const images = em?.images || [];
                     const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
                     const isVideo = (em?.$type || '').includes('video');
                     const isMultiImage = images.length > 1;
-                    const authorName = item.author.displayName || item.author.handle;
+                    const authorName = item.author?.displayName || item.author?.handle || '';
 
                     return (
                       <div
@@ -411,6 +425,7 @@ export default function FeedPage() {
                     item={item}
                     onLikeToggle={handleLikeToggle}
                     liking={liking}
+                    isGuest={isGuest}
                   />
                 ))}
               </div>

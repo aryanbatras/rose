@@ -25,20 +25,21 @@ interface NavEntry {
   icon: 'home' | 'search' | 'reels' | 'bell' | 'feeds' | 'groups' | 'spells' | 'bookmarks' | 'lists' | 'profile' | 'settings';
   badge?: boolean;
   hideEffect?: string;
+  guestHidden?: boolean;
 }
 
 const NAV_ENTRIES: NavEntry[] = [
   { label: 'Home', path: '/feed', icon: 'home' },
   { label: 'Search', path: '/search', icon: 'search', hideEffect: 'hide_search_nav' },
-  { label: 'Reels', path: '/reels', icon: 'reels' },
-  { label: 'Notifications', path: '/notifications', icon: 'bell', badge: true },
+  { label: 'Reels', path: '/reels', icon: 'reels', guestHidden: true },
+  { label: 'Notifications', path: '/notifications', icon: 'bell', badge: true, guestHidden: true },
   { label: 'Discover', path: '/discover', icon: 'feeds', hideEffect: 'hide_feeds_nav' },
-  { label: 'Groups', path: '/groups', icon: 'groups' },
-  { label: 'Lists', path: '/lists', icon: 'lists' },
-  { label: 'Spells', path: '/spells', icon: 'spells' },
-  { label: 'Bookmarks', path: '/bookmarks', icon: 'bookmarks' },
-  { label: 'Profile', path: '/profile', icon: 'profile', hideEffect: 'hide_profile_nav' },
-  { label: 'Settings', path: '/settings', icon: 'settings' },
+  { label: 'Groups', path: '/groups', icon: 'groups', guestHidden: true },
+  { label: 'Lists', path: '/lists', icon: 'lists', guestHidden: true },
+  { label: 'Spells', path: '/spells', icon: 'spells', guestHidden: true },
+  { label: 'Bookmarks', path: '/bookmarks', icon: 'bookmarks', guestHidden: true },
+  { label: 'Profile', path: '/profile', icon: 'profile', hideEffect: 'hide_profile_nav', guestHidden: true },
+  { label: 'Settings', path: '/settings', icon: 'settings', guestHidden: true },
 ];
 
 function NavIcon({ icon, isActive }: { icon: string; isActive: boolean }) {
@@ -65,7 +66,7 @@ function BookmarksIcon() {
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, isAuthenticated } = useAuth();
   const { data: unreadData } = useUnreadCount();
   const unread = (unreadData as any)?.count ?? 0;
   const spells = useSpells();
@@ -74,6 +75,7 @@ export function Sidebar() {
     return null;
   }
 
+  const isGuest = !isAuthenticated;
   const profilePath = session?.handle ? `/profile/${session.handle}` : '/login';
 
   return (
@@ -86,11 +88,11 @@ export function Sidebar() {
 
       <nav className="flex flex-col gap-0.5 flex-1">
         {NAV_ENTRIES.map((entry) => {
-          // Use icon as unique key (Home and Reels both use path '/feed')
           const itemKey = entry.icon;
           if (entry.hideEffect === 'hide_search_nav' && spells.hideSearchNav) return null;
           if (entry.hideEffect === 'hide_feeds_nav' && spells.hideFeedsNav) return null;
           if (entry.hideEffect === 'hide_profile_nav' && spells.hideProfileNav) return null;
+          if (isGuest && entry.guestHidden) return null;
 
           const isActive = entry.path === '/profile'
             ? pathname?.startsWith('/profile')
@@ -137,16 +139,17 @@ export function Sidebar() {
         })}
       </nav>
 
-      {!spells.hideCompose && (
-        <div className="mt-auto pt-4 pb-2 px-3">
-          <button
-            onClick={() => router.push('/compose')}
-            className="nav-compose"
-          >
+      <div className="mt-auto pt-4 pb-2 px-3">
+        {isGuest ? (
+          <button onClick={() => router.push('/login')} className="nav-compose">
+            Sign in
+          </button>
+        ) : !spells.hideCompose ? (
+          <button onClick={() => router.push('/compose')} className="nav-compose">
             Compose
           </button>
-        </div>
-      )}
+        ) : null}
+      </div>
     </aside>
   );
 }
