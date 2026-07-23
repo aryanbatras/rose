@@ -56,7 +56,7 @@ export function MobileNav() {
     return () => { document.body.style.overflow = ''; };
   }, [menuOpen]);
 
-  if (pathname === '/login' || pathname === '/' || pathname?.startsWith('/oauth') || pathname === '/reels' || pathname === '/compose') {
+  if (pathname === '/login' || pathname === '/signup' || pathname === '/' || pathname?.startsWith('/oauth') || pathname === '/reels' || pathname === '/compose') {
     return null;
   }
 

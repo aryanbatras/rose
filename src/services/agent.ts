@@ -178,7 +178,7 @@ export async function createAccount(
   handle: string,
   email: string,
   password: string,
-  inviteCode?: string
+  verificationCode?: string
 ): Promise<{ session: SessionData | null; error?: string }> {
   try {
     const agent = new BskyAgent({ service: ATPROTO_SERVICE });
@@ -186,7 +186,7 @@ export async function createAccount(
       handle,
       email,
       password,
-      inviteCode: inviteCode || undefined,
+      verificationCode: verificationCode || undefined,
     });
     const data = response.data;
     return {

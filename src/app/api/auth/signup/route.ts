@@ -3,7 +3,7 @@ import { createAccount, storeSession } from '@/services/agent';
 
 export async function POST(request: NextRequest) {
   try {
-    const { handle, email, password, inviteCode } = await request.json();
+    const { handle, email, password, verificationCode } = await request.json();
 
     if (!handle || !email || !password) {
       return NextResponse.json(
@@ -12,13 +12,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Basic validation
     if (!email.includes('@')) {
       return NextResponse.json(
         { error: 'Please enter a valid email address' },
         { status: 400 }
       );
     }
+
     if (password.length < 8) {
       return NextResponse.json(
         { error: 'Password must be at least 8 characters' },
@@ -26,7 +26,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await createAccount(handle.trim(), email.trim(), password, inviteCode?.trim());
+    if (!verificationCode) {
+      return NextResponse.json(
+        { error: 'Please complete the human verification challenge' },
+        { status: 400 }
+      );
+    }
+
+    const result = await createAccount(handle.trim(), email.trim(), password, verificationCode);
 
     if (result.error || !result.session) {
       return NextResponse.json(
@@ -35,10 +42,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Auto-login: store session in cookie
     await storeSession(result.session);
 
-    // Return session data for client-side Zustand storage
     return NextResponse.json({
       session: {
         did: result.session.did,
