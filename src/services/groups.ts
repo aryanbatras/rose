@@ -1,7 +1,5 @@
 import { BskyAgent } from '@atproto/api';
 import type {
-  ConvoView,
-  MessageView,
   GroupInfo,
   BasicProfileView,
   JoinLinkPreview,
@@ -11,38 +9,49 @@ import type {
   JoinRequestView,
 } from '@/types/chat';
 
-/**
- * Resolve a handle to a DID using the AT Protocol identity resolver.
- */
-async function resolveHandle(agent: BskyAgent, handle: string): Promise<string | null> {
-  try {
-    const clean = handle.replace(/^@/, '');
-    // If it's already a DID, return as-is
-    if (clean.startsWith('did:')) return clean;
-    const response = await agent.api.com.atproto.identity.resolveHandle({ handle: clean });
-    return response.data.did;
-  } catch {
-    return null;
-  }
+const CHAT_BASE = 'https://api.bsky.chat/xrpc';
+
+function chatHeaders(agent: BskyAgent): Record<string, string> {
+  if (!agent.session?.accessJwt) throw new Error('No session');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${agent.session.accessJwt}`,
+  };
 }
 
-/**
- * Normalize a Bluesky ConvoView into our GroupInfo type.
- */
-function normalizeGroupInfo(convo: ConvoView): GroupInfo {
-  const memberCount = convo.members?.length || 0;
-  const memberNames = convo.members
-    ?.slice(0, 3)
-    .map((m) => m.displayName || m.handle) || [];
+async function chatGet(agent: BskyAgent, endpoint: string, params?: Record<string, string>) {
+  const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+  const res = await fetch(`${CHAT_BASE}/${endpoint}${qs}`, { headers: chatHeaders(agent) });
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = JSON.parse(text).message || msg; } catch {}
+    throw new Error(msg);
+  }
+  return JSON.parse(text);
+}
 
-  // Try to get group name from the convo itself (for named groups)
-  // Fallback to member names for unnamed group conversations
-  const groupName = (convo as any).name || memberNames.join(', ') || 'Group';
+async function chatPost(agent: BskyAgent, endpoint: string, body?: Record<string, any>) {
+  const res = await fetch(`${CHAT_BASE}/${endpoint}`, {
+    method: 'POST',
+    headers: chatHeaders(agent),
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = JSON.parse(text).message || msg; } catch {}
+    throw new Error(msg);
+  }
+  return JSON.parse(text);
+}
 
+function normalizeGroupInfo(convo: any): GroupInfo {
+  const memberNames = convo.members?.slice(0, 3).map((m: any) => m.displayName || m.handle) || [];
   return {
     convoId: convo.id,
-    name: groupName,
-    memberCount,
+    name: convo.name || memberNames.join(', ') || 'Group',
+    memberCount: convo.members?.length || 0,
     members: convo.members || [],
     lastMessage: convo.lastMessage || null,
     unreadCount: convo.unreadCount || 0,
@@ -51,25 +60,29 @@ function normalizeGroupInfo(convo: ConvoView): GroupInfo {
   };
 }
 
-/**
- * List all group conversations for the current user.
- */
+async function resolveHandle(agent: BskyAgent, handle: string): Promise<string | null> {
+  try {
+    const clean = handle.replace(/^@/, '');
+    if (clean.startsWith('did:')) return clean;
+    const response = await agent.api.com.atproto.identity.resolveHandle({ handle: clean });
+    return response.data.did;
+  } catch {
+    return null;
+  }
+}
+
 export async function listGroups(
   agent: BskyAgent,
   cursor?: string,
   limit = 30
 ): Promise<{ groups: GroupInfo[]; cursor?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.convo as any).listConvos({
-      limit,
-      cursor,
-      kind: 'group',
-      status: 'accepted',
-    });
-    const convos: ConvoView[] = response.data.convos || [];
+    const params: Record<string, string> = { limit: String(limit), kind: 'group', status: 'accepted' };
+    if (cursor) params.cursor = cursor;
+    const data = await chatGet(agent, 'chat.bsky.convo.listConvos', params);
     return {
-      groups: convos.map((c: ConvoView) => normalizeGroupInfo(c)),
-      cursor: response.data.cursor,
+      groups: (data.convos || []).map((c: any) => normalizeGroupInfo(c)),
+      cursor: data.cursor,
     };
   } catch (error) {
     console.error('listGroups error:', error);
@@ -77,162 +90,103 @@ export async function listGroups(
   }
 }
 
-/**
- * Get details for a specific group conversation.
- */
 export async function getGroup(
   agent: BskyAgent,
   convoId: string
 ): Promise<GroupInfo | null> {
   try {
-    const response = await (agent.api.chat.bsky.convo as any).getConvo({ convoId });
-    const convo: ConvoView = response.data.convo;
-    return convo ? normalizeGroupInfo(convo) : null;
+    const data = await chatGet(agent, 'chat.bsky.convo.getConvo', { convoId });
+    return data.convo ? normalizeGroupInfo(data.convo) : null;
   } catch (error) {
     console.error('getGroup error:', error);
     return null;
   }
 }
 
-/**
- * Get members of a group conversation.
- */
 export async function getGroupMembers(
   agent: BskyAgent,
   convoId: string
 ): Promise<BasicProfileView[]> {
   try {
-    const response = await (agent.api.chat.bsky.convo as any).getConvoMembers({ convoId });
-    return response.data.members || [];
+    const data = await chatGet(agent, 'chat.bsky.convo.getConvoMembers', { convoId });
+    return data.members || [];
   } catch (error) {
     console.error('getGroupMembers error:', error);
     return [];
   }
 }
 
-/**
- * Get messages from a group conversation.
- */
 export async function getGroupMessages(
   agent: BskyAgent,
   convoId: string,
   cursor?: string,
   limit = 50
-): Promise<{ messages: MessageView[]; cursor?: string }> {
+): Promise<{ messages: any[]; cursor?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.convo as any).getMessages({
-      convoId,
-      limit,
-      cursor,
-    });
-    return {
-      messages: response.data.messages || [],
-      cursor: response.data.cursor,
-    };
+    const params: Record<string, string> = { convoId, limit: String(limit) };
+    if (cursor) params.cursor = cursor;
+    const data = await chatGet(agent, 'chat.bsky.convo.getMessages', params);
+    return { messages: data.messages || [], cursor: data.cursor };
   } catch (error) {
     console.error('getGroupMessages error:', error);
     return { messages: [] };
   }
 }
 
-/**
- * Create a new group conversation.
- * Resolves handles to DIDs first, then creates the group via XRPC.
- */
 export async function createGroup(
   agent: BskyAgent,
   name: string,
   memberIdentifiers: string[]
 ): Promise<{ convoId?: string; error?: string }> {
   try {
-    // Resolve all member identifiers (handles or DIDs) to DIDs in parallel
     const results = await Promise.allSettled(
-      memberIdentifiers.map(async (identifier) => {
-        const did = await resolveHandle(agent, identifier);
-        if (!did) throw new Error(`Could not resolve ${identifier}`);
+      memberIdentifiers.map(async (id) => {
+        const did = await resolveHandle(agent, id);
+        if (!did) throw new Error(`Could not resolve ${id}`);
         return did;
       })
     );
 
     const dids: string[] = [];
     const errors: string[] = [];
-
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        dids.push(result.value);
-      } else {
-        errors.push(result.reason?.message || 'Unknown error');
-      }
+    for (const r of results) {
+      if (r.status === 'fulfilled') dids.push(r.value);
+      else errors.push(r.reason?.message || 'Unknown');
     }
+    if (dids.length === 0) return { error: `Could not find any members. ${errors[0] || ''}` };
 
-    if (dids.length === 0) {
-      return { error: `Could not find any members. ${errors[0] || ''}` };
-    }
-
-    // Use a direct XRPC call to create the group
-    // The group namespace may or may not be wired on the agent, so we use the raw XRPC client
-    const response = await agent.api.xrpc.call(
-      'chat.bsky.group.createGroup',
-      {},
-      { name, members: dids },
-      { encoding: 'application/json' }
-    );
-
-    const convo: ConvoView = response.data?.convo;
-    return { convoId: convo?.id };
+    const data = await chatPost(agent, 'chat.bsky.group.createGroup', { members: dids, name });
+    return { convoId: data.convo?.id };
   } catch (error: any) {
     console.error('createGroup error:', error);
-    const message = error?.message || error?.statusText || 'Failed to create group';
-    if (message.includes('AccountSuspended')) {
-      return { error: 'Your account is suspended and cannot create groups.' };
-    }
-    if (message.includes('BlockedActor') || message.includes('BlockedByActor')) {
-      return { error: 'You have blocked one of the selected members or they blocked you.' };
-    }
-    if (message.includes('RecipientNotFound')) {
-      return { error: 'One or more members could not be found.' };
-    }
-    if (message.includes('UserForbidsGroups')) {
-      return { error: 'One or more members do not allow group invitations.' };
-    }
-    return { error: message };
+    const msg = error?.message || 'Failed to create group';
+    if (msg.includes('AccountSuspended')) return { error: 'Your account is suspended and cannot create groups.' };
+    if (msg.includes('NewAccountCannotCreateGroup')) return { error: 'Your account is too new to create groups. Please try again later.' };
+    if (msg.includes('BlockedActor') || msg.includes('BlockedByActor')) return { error: 'You have blocked one of the selected members or they blocked you.' };
+    if (msg.includes('NotFollowedBySender')) return { error: 'One or more members do not follow you. They need to follow you before you can add them to groups.' };
+    if (msg.includes('RecipientNotFound')) return { error: 'One or more members could not be found.' };
+    if (msg.includes('UserForbidsGroups')) return { error: 'One or more members do not allow group invitations.' };
+    return { error: msg };
   }
 }
 
-/**
- * Preview one or more join links by their codes.
- */
 export async function getJoinLinkPreviews(
   agent: BskyAgent,
   codes: string[]
 ): Promise<{ previews: JoinLinkPreview[] }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).getJoinLinkPreviews({
-      codes,
-    });
-    const rawPreviews = response.data?.joinLinkPreviews || [];
-    const previews: JoinLinkPreview[] = rawPreviews.map((p: any) => {
+    const params = new URLSearchParams();
+    codes.forEach((c) => params.append('codes', c));
+    const data = await chatGet(agent, 'chat.bsky.group.getJoinLinkPreviews', Object.fromEntries(params));
+    const previews: JoinLinkPreview[] = (data.joinLinkPreviews || []).map((p: any) => {
       if (p.$type?.includes('joinLinkPreviewView')) {
         return {
-          status: 'valid' as const,
-          code: p.code,
-          convoId: p.convoId,
-          name: p.name,
-          owner: p.owner ? {
-            did: p.owner.did,
-            handle: p.owner.handle,
-            displayName: p.owner.displayName,
-            avatar: p.owner.avatar,
-          } : undefined,
-          memberCount: p.memberCount,
-          memberLimit: p.memberLimit,
-          requireApproval: p.requireApproval,
-          joinRule: p.joinRule,
+          status: 'valid' as const, code: p.code, convoId: p.convoId, name: p.name,
+          owner: p.owner ? { did: p.owner.did, handle: p.owner.handle, displayName: p.owner.displayName, avatar: p.owner.avatar } : undefined,
+          memberCount: p.memberCount, memberLimit: p.memberLimit, requireApproval: p.requireApproval, joinRule: p.joinRule,
         };
       }
-      if (p.$type?.includes('disabledJoinLinkPreviewView')) {
-        return { status: 'disabled' as const, code: p.code };
-      }
+      if (p.$type?.includes('disabledJoinLinkPreviewView')) return { status: 'disabled' as const, code: p.code };
       return { status: 'invalid' as const, code: p.code };
     });
     return { previews };
@@ -242,50 +196,25 @@ export async function getJoinLinkPreviews(
   }
 }
 
-/**
- * Request to join a group using a join link code.
- */
 export async function requestJoinGroup(
   agent: BskyAgent,
   code: string
 ): Promise<{ result?: JoinResult; error?: string; errorType?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).requestJoin({ code });
-    const data = response.data;
-    return {
-      result: {
-        status: data.status,
-        convo: data.convo,
-      },
-    };
+    const data = await chatPost(agent, 'chat.bsky.group.requestJoin', { code });
+    return { result: { status: data.status, convo: data.convo } };
   } catch (error: any) {
-    const message = error?.message || error?.error || 'Failed to join group';
-    // Map known error types
-    if (message.includes('InvalidCode') || message.includes('InvalidCodeError')) {
-      return { error: 'This invite code is invalid or has expired.', errorType: 'invalid_code' };
-    }
-    if (message.includes('LinkDisabled') || message.includes('LinkDisabledError')) {
-      return { error: 'This join link has been disabled by the group owner.', errorType: 'link_disabled' };
-    }
-    if (message.includes('ConvoLocked') || message.includes('ConvoLockedError')) {
-      return { error: 'This group is locked and not accepting new members.', errorType: 'convo_locked' };
-    }
-    if (message.includes('FollowRequired') || message.includes('FollowRequiredError')) {
-      return { error: 'You need to follow the group owner before joining.', errorType: 'follow_required' };
-    }
-    if (message.includes('MemberLimitReached') || message.includes('MemberLimitReachedError')) {
-      return { error: 'This group has reached its member limit.', errorType: 'member_limit' };
-    }
-    if (message.includes('UserKicked') || message.includes('UserKickedError')) {
-      return { error: 'You have been removed from this group and cannot rejoin.', errorType: 'user_kicked' };
-    }
-    return { error: message, errorType: 'unknown' };
+    const msg = error?.message || 'Failed to join group';
+    if (msg.includes('InvalidCode')) return { error: 'This invite code is invalid or has expired.', errorType: 'invalid_code' };
+    if (msg.includes('LinkDisabled')) return { error: 'This join link has been disabled by the group owner.', errorType: 'link_disabled' };
+    if (msg.includes('ConvoLocked')) return { error: 'This group is locked and not accepting new members.', errorType: 'convo_locked' };
+    if (msg.includes('FollowRequired')) return { error: 'You need to follow the group owner before joining.', errorType: 'follow_required' };
+    if (msg.includes('MemberLimitReached')) return { error: 'This group has reached its member limit.', errorType: 'member_limit' };
+    if (msg.includes('UserKicked')) return { error: 'You have been removed from this group and cannot rejoin.', errorType: 'user_kicked' };
+    return { error: msg, errorType: 'unknown' };
   }
 }
 
-/**
- * Create a join link for a group.
- */
 export async function createJoinLink(
   agent: BskyAgent,
   convoId: string,
@@ -293,152 +222,83 @@ export async function createJoinLink(
   requireApproval = false
 ): Promise<{ joinLink?: JoinLink; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).createJoinLink({
-      convoId,
-      joinRule,
-      requireApproval,
-    });
-    const link = response.data?.joinLink;
+    const data = await chatPost(agent, 'chat.bsky.group.createJoinLink', { convoId, joinRule, requireApproval });
+    const link = data.joinLink;
     if (!link) return { error: 'No join link returned' };
-    return {
-      joinLink: {
-        code: link.code,
-        enabledStatus: link.enabledStatus,
-        requireApproval: link.requireApproval,
-        joinRule: link.joinRule,
-        createdAt: link.createdAt,
-      },
-    };
+    return { joinLink: { code: link.code, enabledStatus: link.enabledStatus, requireApproval: link.requireApproval, joinRule: link.joinRule, createdAt: link.createdAt } };
   } catch (error: any) {
-    const message = error?.message || 'Failed to create join link';
-    if (message.includes('EnabledJoinLinkAlreadyExists')) {
-      return { error: 'A join link already exists for this group. Disable it first to create a new one.' };
-    }
-    return { error: message };
+    const msg = error?.message || 'Failed to create join link';
+    if (msg.includes('EnabledJoinLinkAlreadyExists')) return { error: 'A join link already exists for this group. Disable it first to create a new one.' };
+    return { error: msg };
   }
 }
 
-/**
- * Disable a join link for a group.
- */
-export async function disableJoinLink(
-  agent: BskyAgent,
-  convoId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function disableJoinLink(agent: BskyAgent, convoId: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    await (agent.api.chat.bsky.group as any).disableJoinLink({ convoId });
+    await chatPost(agent, 'chat.bsky.group.disableJoinLink', { convoId });
     return { success: true };
   } catch (error: any) {
     return { error: error?.message || 'Failed to disable join link' };
   }
 }
 
-/**
- * Enable a join link for a group.
- */
-export async function enableJoinLink(
-  agent: BskyAgent,
-  convoId: string
-): Promise<{ joinLink?: JoinLink; error?: string }> {
+export async function enableJoinLink(agent: BskyAgent, convoId: string): Promise<{ joinLink?: JoinLink; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).enableJoinLink({ convoId });
-    const link = response.data?.joinLink;
+    const data = await chatPost(agent, 'chat.bsky.group.enableJoinLink', { convoId });
+    const link = data.joinLink;
     if (!link) return { error: 'No join link returned' };
-    return {
-      joinLink: {
-        code: link.code,
-        enabledStatus: link.enabledStatus,
-        requireApproval: link.requireApproval,
-        joinRule: link.joinRule,
-        createdAt: link.createdAt,
-      },
-    };
+    return { joinLink: { code: link.code, enabledStatus: link.enabledStatus, requireApproval: link.requireApproval, joinRule: link.joinRule, createdAt: link.createdAt } };
   } catch (error: any) {
     return { error: error?.message || 'Failed to enable join link' };
   }
 }
 
-/**
- * Add members to a group conversation.
- * Resolves handles to DIDs before calling the API.
- */
 export async function addGroupMembers(
   agent: BskyAgent,
   convoId: string,
   memberIdentifiers: string[]
-): Promise<{ convo?: ConvoView; addedMembers?: BasicProfileView[]; error?: string }> {
+): Promise<{ convo?: any; addedMembers?: BasicProfileView[]; error?: string }> {
   try {
-    // Resolve all member identifiers (handles or DIDs) to DIDs in parallel
     const results = await Promise.allSettled(
-      memberIdentifiers.map(async (identifier) => {
-        const did = await resolveHandle(agent, identifier);
-        if (!did) throw new Error(`Could not resolve ${identifier}`);
+      memberIdentifiers.map(async (id) => {
+        const did = await resolveHandle(agent, id);
+        if (!did) throw new Error(`Could not resolve ${id}`);
         return did;
       })
     );
-
     const dids: string[] = [];
     const errors: string[] = [];
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        dids.push(result.value);
-      } else {
-        errors.push(result.reason?.message || 'Unknown');
-      }
+    for (const r of results) {
+      if (r.status === 'fulfilled') dids.push(r.value);
+      else errors.push(r.reason?.message || 'Unknown');
     }
+    if (dids.length === 0) return { error: `Could not resolve any members. ${errors[0] || ''}` };
 
-    if (dids.length === 0) {
-      return { error: `Could not resolve any members. ${errors[0] || ''}` };
-    }
-
-    const response = await (agent.api.chat.bsky.group as any).addMembers({
-      convoId,
-      members: dids,
-    });
-    return {
-      convo: response.data?.convo,
-      addedMembers: response.data?.addedMembers,
-    };
+    const data = await chatPost(agent, 'chat.bsky.group.addMembers', { convoId, members: dids });
+    return { convo: data.convo, addedMembers: data.addedMembers };
   } catch (error: any) {
-    const message = error?.message || 'Failed to add members';
-    if (message.includes('MemberLimitReached')) {
-      return { error: 'This group has reached its member limit.' };
-    }
-    if (message.includes('BlockedActor') || message.includes('BlockedByActor')) {
-      return { error: 'You have blocked one of these members or they blocked you.' };
-    }
-    if (message.includes('UserForbidsGroups')) {
-      return { error: 'One or more members do not allow group invitations.' };
-    }
-    if (message.includes('RecipientNotFound')) {
-      return { error: 'One or more members could not be found.' };
-    }
-    return { error: message };
+    const msg = error?.message || 'Failed to add members';
+    if (msg.includes('MemberLimitReached')) return { error: 'This group has reached its member limit.' };
+    if (msg.includes('BlockedActor') || msg.includes('BlockedByActor')) return { error: 'You have blocked one of these members or they blocked you.' };
+    if (msg.includes('UserForbidsGroups')) return { error: 'One or more members do not allow group invitations.' };
+    if (msg.includes('RecipientNotFound')) return { error: 'One or more members could not be found.' };
+    return { error: msg };
   }
 }
 
-/**
- * Remove members from a group conversation.
- */
 export async function removeGroupMembers(
   agent: BskyAgent,
   convoId: string,
   memberDids: string[]
-): Promise<{ convo?: ConvoView; error?: string }> {
+): Promise<{ convo?: any; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).removeMembers({
-      convoId,
-      members: memberDids,
-    });
-    return { convo: response.data?.convo };
+    const data = await chatPost(agent, 'chat.bsky.group.removeMembers', { convoId, members: memberDids });
+    return { convo: data.convo };
   } catch (error: any) {
     return { error: error?.message || 'Failed to remove members' };
   }
 }
 
-/**
- * List pending join requests for a group.
- */
 export async function listJoinRequests(
   agent: BskyAgent,
   convoId: string,
@@ -446,74 +306,50 @@ export async function listJoinRequests(
   limit = 30
 ): Promise<{ requests: JoinRequestView[]; cursor?: string; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).listJoinRequests({
-      convoId,
-      limit,
-      cursor,
-    });
-    return {
-      requests: response.data?.requests || [],
-      cursor: response.data?.cursor,
-    };
+    const params: Record<string, string> = { convoId, limit: String(limit) };
+    if (cursor) params.cursor = cursor;
+    const data = await chatGet(agent, 'chat.bsky.group.listJoinRequests', params);
+    return { requests: data.requests || [], cursor: data.cursor };
   } catch (error: any) {
     return { error: error?.message || 'Failed to list join requests', requests: [] };
   }
 }
 
-/**
- * Approve a pending join request for a group.
- */
 export async function approveJoinRequest(
   agent: BskyAgent,
   convoId: string,
   memberDid: string
-): Promise<{ convo?: ConvoView; error?: string }> {
+): Promise<{ convo?: any; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).approveJoinRequest({
-      convoId,
-      member: memberDid,
-    });
-    return { convo: response.data?.convo };
+    const data = await chatPost(agent, 'chat.bsky.group.approveJoinRequest', { convoId, member: memberDid });
+    return { convo: data.convo };
   } catch (error: any) {
     return { error: error?.message || 'Failed to approve request' };
   }
 }
 
-/**
- * Reject a pending join request for a group.
- */
 export async function rejectJoinRequest(
   agent: BskyAgent,
   convoId: string,
   memberDid: string
 ): Promise<{ error?: string }> {
   try {
-    await (agent.api.chat.bsky.group as any).rejectJoinRequest({
-      convoId,
-      member: memberDid,
-    });
+    await chatPost(agent, 'chat.bsky.group.rejectJoinRequest', { convoId, member: memberDid });
     return {};
   } catch (error: any) {
     return { error: error?.message || 'Failed to reject request' };
   }
 }
 
-/**
- * List mutual groups (groups where both the current user and another user are members).
- */
 export async function listMutualGroups(
   agent: BskyAgent,
   subject: string
 ): Promise<{ groups: GroupInfo[]; cursor?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).listMutualGroups({
-      subject,
-      limit: 30,
-    });
-    const convos: ConvoView[] = response.data?.convos || [];
+    const data = await chatGet(agent, 'chat.bsky.group.listMutualGroups', { subject, limit: '30' });
     return {
-      groups: convos.map((c: ConvoView) => normalizeGroupInfo(c)),
-      cursor: response.data?.cursor,
+      groups: (data.convos || []).map((c: any) => normalizeGroupInfo(c)),
+      cursor: data.cursor,
     };
   } catch (error) {
     console.error('listMutualGroups error:', error);
@@ -521,65 +357,40 @@ export async function listMutualGroups(
   }
 }
 
-/**
- * Mute a group conversation (stop receiving notifications).
- */
-export async function muteGroup(
-  agent: BskyAgent,
-  convoId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function muteGroup(agent: BskyAgent, convoId: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    await (agent.api.chat.bsky.convo as any).muteConvo({ convoId });
+    await chatPost(agent, 'chat.bsky.convo.muteConvo', { convoId });
     return { success: true };
   } catch (error: any) {
     return { error: error?.message || 'Failed to mute group' };
   }
 }
 
-/**
- * Unmute a group conversation (resume receiving notifications).
- */
-export async function unmuteGroup(
-  agent: BskyAgent,
-  convoId: string
-): Promise<{ success?: boolean; error?: string }> {
+export async function unmuteGroup(agent: BskyAgent, convoId: string): Promise<{ success?: boolean; error?: string }> {
   try {
-    await (agent.api.chat.bsky.convo as any).unmuteConvo({ convoId });
+    await chatPost(agent, 'chat.bsky.convo.unmuteConvo', { convoId });
     return { success: true };
   } catch (error: any) {
     return { error: error?.message || 'Failed to unmute group' };
   }
 }
 
-/**
- * Edit group settings (name).
- */
 export async function editGroupSettings(
   agent: BskyAgent,
   convoId: string,
   name: string
-): Promise<{ convo?: ConvoView; error?: string }> {
+): Promise<{ convo?: any; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).editGroup({
-      convoId,
-      name,
-    });
-    return { convo: response.data?.convo };
+    const data = await chatPost(agent, 'chat.bsky.group.editGroup', { convoId, name });
+    return { convo: data.convo };
   } catch (error: any) {
-    const message = error?.message || 'Failed to update group settings';
-    if (message.includes('NameTooLong')) {
-      return { error: 'Group name is too long (max 50 characters).' };
-    }
-    if (message.includes('NameRequired')) {
-      return { error: 'Group name is required.' };
-    }
-    return { error: message };
+    const msg = error?.message || 'Failed to update group settings';
+    if (msg.includes('NameTooLong')) return { error: 'Group name is too long (max 50 characters).' };
+    if (msg.includes('NameRequired')) return { error: 'Group name is required.' };
+    return { error: msg };
   }
 }
 
-/**
- * Edit join link settings (approval requirement, join rule).
- */
 export async function editJoinLinkSettings(
   agent: BskyAgent,
   convoId: string,
@@ -587,43 +398,25 @@ export async function editJoinLinkSettings(
   joinRule?: JoinRule
 ): Promise<{ joinLink?: JoinLink; error?: string }> {
   try {
-    const response = await (agent.api.chat.bsky.group as any).editJoinLink({
-      convoId,
-      requireApproval,
-      ...(joinRule ? { joinRule } : {}),
-    });
-    const link = response.data?.joinLink;
+    const body: Record<string, any> = { convoId, requireApproval };
+    if (joinRule) body.joinRule = joinRule;
+    const data = await chatPost(agent, 'chat.bsky.group.editJoinLink', body);
+    const link = data.joinLink;
     if (!link) return { error: 'No join link returned' };
-    return {
-      joinLink: {
-        code: link.code,
-        enabledStatus: link.enabledStatus,
-        requireApproval: link.requireApproval,
-        joinRule: link.joinRule,
-        createdAt: link.createdAt,
-      },
-    };
+    return { joinLink: { code: link.code, enabledStatus: link.enabledStatus, requireApproval: link.requireApproval, joinRule: link.joinRule, createdAt: link.createdAt } };
   } catch (error: any) {
     return { error: error?.message || 'Failed to update join link settings' };
   }
 }
 
-/**
- * Send a message to a group conversation.
- */
 export async function sendGroupMessage(
   agent: BskyAgent,
   convoId: string,
   text: string
-): Promise<{ message?: MessageView; error?: string }> {
+): Promise<{ message?: any; error?: string }> {
   try {
-    const response = await agent.api.xrpc.call(
-      'chat.bsky.convo.sendMessage',
-      {},
-      { convoId, message: { text } },
-      { encoding: 'application/json' }
-    );
-    return { message: response.data?.message };
+    const data = await chatPost(agent, 'chat.bsky.convo.sendMessage', { convoId, message: { text } });
+    return { message: data.message };
   } catch (error: any) {
     return { error: error?.message || 'Failed to send message' };
   }

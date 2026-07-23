@@ -934,6 +934,7 @@ export default function GroupDetailPage() {
           </div>
         ) : (
           messages.map((msg) => {
+            if (!msg.sender) return null;
             const isOwn = msg.sender.did === session?.did;
             const sender = getSenderProfile(msg.sender.did);
             return (

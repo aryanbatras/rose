@@ -2,24 +2,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, authFetch } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { useGroupPolling } from '@/hooks/useGroupPolling';
 import { useGroupNameStore } from '@/stores/group-name-store';
 import type { GroupInfo } from '@/types/chat';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
-import { UserPlus, Users, X, Loader2 } from 'lucide-react';
-
-const APP_PASSWORD_KEY = 'rose_app_password';
-
-function getStoredAppPassword(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(APP_PASSWORD_KEY);
-}
-
-function storeAppPassword(password: string) {
-  localStorage.setItem(APP_PASSWORD_KEY, password);
-}
+import { UserPlus, Users, X } from 'lucide-react';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -30,7 +19,6 @@ export default function GroupsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [memberHandles, setMemberHandles] = useState('');
-  const [creatingPassword, setCreatingPassword] = useState(false);
 
   // ── Group name persistence ──────────────────────────────────────────
   const setStoredName = useGroupNameStore((s) => s.setName);
@@ -72,39 +60,7 @@ export default function GroupsPage() {
     }, []),
   });
 
-  const ensureAppPassword = async (): Promise<string | null> => {
-    const stored = getStoredAppPassword();
-    if (stored) return stored;
-
-    setCreatingPassword(true);
-    try {
-      const res = await authFetch('/api/auth/create-app-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Rose Groups' }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        storeAppPassword(data.password);
-        return data.password;
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast.error(err.error || 'Failed to set up groups');
-        return null;
-      }
-    } catch {
-      toast.error('Failed to connect to Bluesky');
-      return null;
-    } finally {
-      setCreatingPassword(false);
-    }
-  };
-
   const handleCreate = async () => {
-    const password = await ensureAppPassword();
-    if (!password) return;
-
     if (!groupName.trim() || !memberHandles.trim()) {
       toast.error('Group name and at least one member required');
       return;
@@ -173,19 +129,10 @@ export default function GroupsPage() {
               <UserPlus className="h-4 w-4 sm:hidden" />
             </button>
             <button
-              onClick={async () => {
-                if (!showCreate) {
-                  const pw = await ensureAppPassword();
-                  if (!pw) return;
-                }
-                setShowCreate(!showCreate);
-              }}
-              disabled={creatingPassword}
-              className="px-4 py-2 rounded-full bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-50"
+              onClick={() => setShowCreate(!showCreate)}
+              className="px-4 py-2 rounded-full bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors"
             >
-              {creatingPassword ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : showCreate ? 'Cancel' : 'New Group'}
+              {showCreate ? 'Cancel' : 'New Group'}
             </button>
           </div>
         </div>
@@ -254,17 +201,9 @@ export default function GroupsPage() {
                 Create a group to start chatting with friends
               </p>
               <button
-                onClick={async () => {
-                  const pw = await ensureAppPassword();
-                  if (!pw) return;
-                  setShowCreate(true);
-                }}
-                disabled={creatingPassword}
-                className="mt-4 px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-50"
+                onClick={() => setShowCreate(true)}
+                className="mt-4 px-6 py-2.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition-colors"
               >
-                {creatingPassword ? (
-                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                ) : null}
                 Create Group
               </button>
             </div>
