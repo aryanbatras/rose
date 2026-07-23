@@ -6,15 +6,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFeed } from '@/hooks/useFeed';
 import { useFeedSourceStore } from '@/stores/feed-source-store';
 import { useFilterStore } from '@/stores/filter-store';
-import { useDashboardStore } from '@/stores/dashboard-store';
 import { applyFilters } from '@/lib/filters';
 import { FeedSourcePicker } from '@/components/feed/FeedSourcePicker';
 import { TrendingFeedView } from '@/components/feed/TrendingFeedView';
-import { DashboardColumn } from '@/components/feed/DashboardColumn';
 import { BookmarkButton } from '@/components/feed/BookmarkButton';
 import { DownloadButton } from '@/components/feed/DownloadButton';
 import { ImageCarousel } from '@/components/feed/ImageCarousel';
-import { Play, Columns, LayoutGrid } from 'lucide-react';
+import { Play, LayoutGrid } from 'lucide-react';
 import type { FeedItem } from '@/types/atproto';
 
 // ─── Relative Time ───────────────────────────────────────────────
@@ -193,7 +191,6 @@ export default function FeedPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { activeSource } = useFeedSourceStore();
   const filters = useFilterStore();
-  const { enabled: dashboardEnabled, columns, toggleEnabled: toggleDashboard } = useDashboardStore();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = useFeed(activeSource);
   const isTrending = activeSource?.type === 'trending';
   const [liking, setLiking] = useState<Set<string>>(new Set());
@@ -294,33 +291,17 @@ export default function FeedPage() {
       <header className="sticky top-0 z-40 bg-surface-base/95 backdrop-blur-xl border-b border-border">
         <div className="flex items-center justify-between px-4 h-[56px]">
           <FeedSourcePicker />
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setGridMode(!gridMode)}
-              className={`p-2 rounded-lg transition-colors ${gridMode ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
-              title={gridMode ? 'Classic view' : 'Grid view'}
-            >
-              <LayoutGrid className="h-5 w-5" />
-            </button>
-            <button
-              onClick={toggleDashboard}
-              className={`p-2 rounded-lg transition-colors ${dashboardEnabled ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
-              title={dashboardEnabled ? 'Single column view' : 'Multi-column dashboard'}
-            >
-              <Columns className="h-5 w-5" />
-            </button>
-          </div>
+          <button
+            onClick={() => setGridMode(!gridMode)}
+            className={`p-2 rounded-lg transition-colors ${gridMode ? 'bg-brand/10 text-brand' : 'text-muted-foreground hover:bg-accent'}`}
+            title={gridMode ? 'Classic view' : 'Grid view'}
+          >
+            <LayoutGrid className="h-5 w-5" />
+          </button>
         </div>
       </header>
 
-      {dashboardEnabled ? (
-        /* ─── Multi-Column Dashboard ───────────── */
-        <div className="hidden lg:flex h-[calc(100dvh-56px)]">
-          {columns.map((col) => (
-            <DashboardColumn key={col.id} source={col.source} label={col.label} />
-          ))}
-        </div>
-      ) : isTrending ? (
+      {isTrending ? (
         <TrendingFeedView />
       ) : (
         <>
