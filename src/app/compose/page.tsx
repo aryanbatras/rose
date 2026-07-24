@@ -157,8 +157,8 @@ function ComposeForm() {
   }, []);
 
   const handleSubmit = async () => {
-    if (images.length === 0) {
-      toast.error('Add a photo or video to post');
+    if (!text.trim() && images.length === 0) {
+      toast.error('Write something or add a photo');
       return;
     }
     setIsSubmitting(true);
@@ -206,8 +206,7 @@ function ComposeForm() {
             <Button
               size="sm"
               onClick={handleSubmit}
-              disabled={isSubmitting || images.length === 0}
-              title={images.length === 0 ? 'Add a photo or video to post' : ''}
+              disabled={isSubmitting || (!text.trim() && images.length === 0)}
             >
               {isSubmitting ? 'Posting...' : 'Post'}
             </Button>
@@ -236,7 +235,7 @@ function ComposeForm() {
               ref={textareaRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="What's on your mind?"
+              placeholder="What's happening?"
               rows={4}
               maxLength={300}
               className="w-full resize-none bg-transparent text-lg text-foreground placeholder:text-muted-foreground focus:outline-none border-none leading-normal"

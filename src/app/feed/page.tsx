@@ -293,8 +293,8 @@ export default function FeedPage() {
     display: filters.display,
   });
 
-  // Filter to only media posts (images/video) — with null safety
-  const mediaPosts = filteredPosts.filter((p) => {
+  // Only show posts with images or videos — nothing else
+  const displayPosts = filteredPosts.filter((p) => {
     const em = p.record?.embed;
     if (!em) return false;
     const t = em.$type || '';
@@ -342,7 +342,7 @@ export default function FeedPage() {
                 Try again
               </button>
             </div>
-          ) : mediaPosts.length === 0 ? (
+          ) : displayPosts.length === 0 ? (
             <div className="py-24 text-center">
               <p className="text-lg font-medium text-foreground">No posts to show</p>
               <p className="text-sm text-muted-foreground mt-1">Follow some users or pick a feed</p>
@@ -352,7 +352,7 @@ export default function FeedPage() {
             <>
               <div className="px-2 pt-2">
                 <div className="grid grid-cols-2 gap-2">
-                  {mediaPosts.map((item) => {
+                  {displayPosts.map((item) => {
                     const em = item.record?.embed;
                     const images = em?.images || [];
                     const thumbUrl = images[0]?.thumb || images[0]?.fullsize || em?.thumbnail || em?.video?.thumbnail || null;
@@ -421,7 +421,7 @@ export default function FeedPage() {
           ) : (
             <>
               <div className="mx-auto max-w-3xl pb-20">
-                {mediaPosts.map((item) => (
+                {displayPosts.map((item) => (
                   <PostCard
                     key={`${item.uri}-${item.cid}`}
                     item={item}

@@ -9,6 +9,14 @@ export function isNsfwPost(item: any): boolean {
   return false;
 }
 
+export function isQuotePost(item: any): boolean {
+  const post = item.post || item;
+  const embed = post.embed || post.record?.embed;
+  if (!embed) return false;
+  const t = embed.$type || '';
+  return t.includes('record');
+}
+
 export function filterNsfw<T>(items: T[]): T[] {
-  return items.filter((item: any) => !isNsfwPost(item));
+  return items.filter((item: any) => !isNsfwPost(item) && !isQuotePost(item));
 }

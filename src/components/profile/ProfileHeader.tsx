@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/ui/avatar';
 import { useFollowUser, useUnfollowUser } from '@/hooks/useProfile';
 import { useBlockMute } from '@/hooks/useBlockMute';
@@ -12,6 +13,7 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ profile }: ProfileHeaderProps) {
+  const router = useRouter();
   const { session } = useAuth();
   const followMutation = useFollowUser();
   const unfollowMutation = useUnfollowUser();
@@ -145,12 +147,18 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
           <span className="text-sm text-muted-foreground">
             <strong className="text-foreground font-semibold tabular-nums">{profile.postsCount ?? 0}</strong> posts
           </span>
-          <span className="text-sm text-muted-foreground">
+          <button
+            onClick={() => router.push(`/profile/${profile.handle}/followers`)}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
             <strong className="text-foreground font-semibold tabular-nums">{profile.followersCount ?? 0}</strong> followers
-          </span>
-          <span className="text-sm text-muted-foreground">
+          </button>
+          <button
+            onClick={() => router.push(`/profile/${profile.handle}/following`)}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
             <strong className="text-foreground font-semibold tabular-nums">{profile.followsCount ?? 0}</strong> following
-          </span>
+          </button>
         </div>
 
         {/* Join date */}

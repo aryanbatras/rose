@@ -6,12 +6,14 @@ import type { FeedItem } from '@/types/atproto';
  * `uri` = post URI, `bookmarkUri` = the bookmark record URI (needed for deletion).
  */
 interface SyncBookmark {
-  uri: string; // post URI (at://did:plc:xxx/app.bsky.feed.post/xxx)
+  uri: string;
   cid: string;
-  bookmarkUri: string; // bookmark record URI (needed for deleteBookmark)
+  bookmarkUri: string;
   author: { handle: string; displayName?: string; avatar?: string };
   text: string;
   savedAt: string;
+  thumbnail?: string;
+  isVideo?: boolean;
 }
 
 interface BookmarkState {
@@ -42,14 +44,25 @@ export const useBookmarkStore = create<BookmarkState>()((set, get) => ({
       const res = await fetch('/api/bookmarks');
       if (res.ok) {
         const data = await res.json();
-        const items = (data.bookmarks || []).map((b: any) => ({
-          uri: b.subject?.uri || b.item?.uri,
-          cid: b.subject?.cid || b.item?.cid,
-          bookmarkUri: b.subject?.uri || b.item?.uri,
-          author: b.item?.author || b.author || { handle: 'unknown' },
-          text: b.item?.record?.text || b.item?.value?.text || '',
+      const items = (data.bookmarks || []).map((b: any) => {
+        const item = b.item || {};
+        const record = item.record || {};
+        const embed = item.embed || record.embed;
+        const images = embed?.images || [];
+        const thumbnail = images[0]?.thumb || embed?.thumbnail || null;
+        const isVideo = (embed?.$type || '').includes('video');
+
+        return {
+          uri: item.uri || b.subject?.uri,
+          cid: item.cid || b.subject?.cid,
+          bookmarkUri: b.subject?.uri || item.uri,
+          author: item.author || b.author || { handle: 'unknown' },
+          text: record.text || '',
           savedAt: b.createdAt || new Date().toISOString(),
-        }));
+          thumbnail: thumbnail || undefined,
+          isVideo,
+        };
+      });
         set({ bookmarks: items, loaded: true, loading: false });
       } else {
         set({ loaded: true, loading: false });
