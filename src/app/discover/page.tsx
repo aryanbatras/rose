@@ -56,24 +56,11 @@ export default function DiscoverPage() {
     setPopularLoading(true);
     popularCursorRef.current = null;
 
-    // For guests, use static CURATED_FEEDS list
-    if (!isAuthenticated) {
-      setPopularFeeds(CURATED_FEEDS.map((f) => ({
-        uri: f.uri,
-        label: f.label,
-        description: f.description,
-        avatar: f.avatar,
-        creatorHandle: '',
-        creatorDisplayName: '',
-        likeCount: 0,
-      })));
-      setPopularLoading(false);
-      return;
-    }
+    const endpoint = isAuthenticated ? '/api/feed/generators?mode=popular&limit=25' : '/api/public/discover?mode=curated';
 
     async function load() {
       try {
-        const res = await fetch('/api/feed/generators?mode=popular&limit=25');
+        const res = await fetch(endpoint);
         if (res.ok) {
           const data = await res.json();
           setPopularFeeds(data.feeds || []);
@@ -123,7 +110,7 @@ export default function DiscoverPage() {
   useEffect(() => {
     if (!hasQuery) return;
 
-    // For guests, filter the static CURATED_FEEDS list
+    // For guests, filter the static CURATED_FEEDS list (no search API for feeds)
     if (!isAuthenticated) {
       const q = debouncedQuery.toLowerCase();
       setSearchResults(

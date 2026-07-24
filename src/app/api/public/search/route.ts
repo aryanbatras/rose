@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publicSearchPosts } from '@/services/public-api';
+import { filterNsfw } from '@/lib/nsfw';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await publicSearchPosts(q, cursor, limit);
-    return NextResponse.json({ items: data.posts || [], cursor: data.cursor });
+    return NextResponse.json({ items: filterNsfw(data.posts || []), cursor: data.cursor });
   } catch (error) {
     console.error('Public search API error:', error);
     return NextResponse.json({ items: [], cursor: undefined });

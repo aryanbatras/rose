@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publicGetAuthorFeed, publicGetFeed } from '@/services/public-api';
+import { filterNsfw } from '@/lib/nsfw';
 import type { FeedItem } from '@/types/atproto';
 
 const DISCOVER_FEED = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot';
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       nextCursor = data.cursor;
     }
 
-    const items = rawItems.map(normalizeFeedItem);
+    const items = filterNsfw(rawItems.map(normalizeFeedItem));
     return NextResponse.json({ items, cursor: nextCursor });
   } catch (error) {
     console.error('Public feed API error:', error);

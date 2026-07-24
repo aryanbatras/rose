@@ -68,3 +68,22 @@ export async function publicSearchActors(term: string, cursor?: string, limit = 
     ...(cursor ? { cursor } : {}),
   });
 }
+
+export async function publicGetFeedGenerator(feedUri: string) {
+  return publicFetch('/xrpc/app.bsky.feed.getFeedGenerator', {
+    feed: feedUri,
+  });
+}
+
+export async function publicGetFeedGenerators(feedUris: string[]) {
+  return publicFetch('/xrpc/app.bsky.feed.getFeedGenerators', {
+    feeds: feedUris.join(','),
+  });
+}
+
+export async function publicGetPopularFeedGenerators(cursor?: string, limit = 25) {
+  return publicFetch('/xrpc/app.bsky.unspecced.getPopularFeedGenerators', {
+    limit: String(limit),
+    ...(cursor ? { cursor } : {}),
+  });
+}

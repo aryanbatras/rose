@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { FeedSource } from '@/types/atproto';
 
-const DEFAULT_SOURCE: FeedSource = { type: 'following', label: 'Following' };
+const DEFAULT_SOURCE: FeedSource = { type: 'discover', label: 'Discover' };
 
 const PRESET_FEEDS: FeedSource[] = [
   { type: 'following', label: 'Following' },
