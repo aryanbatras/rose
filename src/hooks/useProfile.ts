@@ -4,17 +4,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 
 export function useProfile(handle: string) {
-  const { session } = useAuth();
+  const { session, isAuthenticated, isLoading } = useAuth();
+  const isGuest = !isLoading && !isAuthenticated;
 
   return useQuery({
-    queryKey: ['profile', handle],
+    queryKey: ['profile', handle, isGuest],
     queryFn: async () => {
-      if (!session) throw new Error('Not authenticated');
-      const res = await fetch(`/api/profile?actor=${encodeURIComponent(handle)}`);
+      if (!handle) throw new Error('Handle required');
+      const endpoint = isGuest ? '/api/public/profile' : '/api/profile';
+      const param = isGuest ? 'actor' : 'actor';
+      const res = await fetch(`${endpoint}?${param}=${encodeURIComponent(handle)}`);
       if (!res.ok) throw new Error('Failed to fetch profile');
       return res.json();
     },
-    enabled: !!session && !!handle,
+    enabled: !!handle,
     staleTime: 30_000,
   });
 }

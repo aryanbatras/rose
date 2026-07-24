@@ -25,7 +25,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
+      // Guests can browse search
     }
   }, [isAuthenticated, authLoading, router]);
 

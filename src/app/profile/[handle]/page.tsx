@@ -25,9 +25,7 @@ export default function ProfilePage() {
   const isOwnProfile = session?.handle === handle || session?.did === profile?.did;
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
+    // Guests can browse profiles
   }, [isAuthenticated, authLoading, router]);
 
   // Infinite scroll sentinel

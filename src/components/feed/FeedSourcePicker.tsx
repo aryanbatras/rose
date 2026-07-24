@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import { useFeedSourceStore, PRESET_FEEDS } from '@/stores/feed-source-store';
 import { CURATED_FEEDS } from '@/services/feeds';
 import { ChevronDown, Home, Compass, Check, LayoutGrid, X } from 'lucide-react';
@@ -9,13 +10,20 @@ import type { FeedSource } from '@/types/atproto';
 
 export function FeedSourcePicker() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const { activeSource, savedFeeds, setActiveSource, removeSavedFeed } = useFeedSourceStore();
   const [isOpen, setIsOpen] = useState(false);
+
+  const isGuest = !isAuthenticated;
 
   const handleSelect = (source: FeedSource) => {
     setActiveSource(source);
     setIsOpen(false);
   };
+
+  const visiblePresets = isGuest
+    ? PRESET_FEEDS.filter((s) => s.type !== 'following')
+    : PRESET_FEEDS;
 
   return (
     <>
@@ -34,7 +42,7 @@ export function FeedSourcePicker() {
           <div className="absolute left-4 top-full mt-1 z-50 w-80 bg-surface-elevated border border-border rounded-xl shadow-xl overflow-hidden">
             <div className="max-h-96 overflow-y-auto p-1.5">
               {/* ─── Preset Feeds ──────────────── */}
-              {PRESET_FEEDS.map((source) => {
+              {visiblePresets.map((source) => {
                 const isActive = activeSource.type === source.type && activeSource.uri === source.uri;
                 return (
                   <button

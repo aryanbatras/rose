@@ -195,11 +195,13 @@ export default function FeedPage() {
   const { activeSource } = useFeedSourceStore();
   const filters = useFilterStore();
 
-  // Use guest feed when not authenticated
-  const guestFeed = useGuestFeed();
+  const isGuest = !authLoading && !isAuthenticated;
+
+  // Use guest feed when not authenticated — pass custom feed URI if selected
+  const guestFeedUri = isGuest && activeSource.uri ? activeSource.uri : undefined;
+  const guestFeed = useGuestFeed(guestFeedUri);
   const authFeed = useFeed(activeSource);
 
-  const isGuest = !authLoading && !isAuthenticated;
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error, refetch } = isGuest
     ? guestFeed
     : authFeed;

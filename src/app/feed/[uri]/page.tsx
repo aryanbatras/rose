@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { usePostThread } from '@/hooks/useFeed';
+import { useGuestThread } from '@/hooks/useGuest';
 import { FeedCard } from '@/components/feed/FeedCard';
 import { ReplyThread } from '@/components/feed/ReplyThread';
 import { FeedCardSkeleton } from '@/components/ui/skeleton';
@@ -14,18 +15,25 @@ export default function PostThreadPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, session } = useAuth();
   const uri = decodeURIComponent(params.uri as string);
-  const { data: thread, isLoading, error } = usePostThread(uri);
+
+  const isGuest = !authLoading && !isAuthenticated;
+
+  const authThread = usePostThread(uri);
+  const guestThread = useGuestThread(uri);
+
+  const { data: thread, isLoading, error } = isGuest ? guestThread : authThread;
   const [replyText, setReplyText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
+    // Guests can view threads
   }, [isAuthenticated, authLoading, router]);
 
   const handleSubmitReply = async () => {
-    if (!replyText.trim() || isSubmitting) return;
+    if (!replyText.trim() || isSubmitting || isGuest) {
+      if (isGuest) router.push('/login');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const mainPost = thread?.post || thread;
@@ -141,7 +149,6 @@ export default function PostThreadPage() {
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-base/95 backdrop-blur-lg safe-bottom shadow-[0_-1px_3px_rgba(0,0,0,0.04)]">
         <div className="mx-auto max-w-lg px-4 py-3">
           <div className="flex items-center gap-3">
-            {/* User avatar */}
             <div className="h-8 w-8 rounded-full bg-accent shrink-0 overflow-hidden">
               {session?.handle && (
                 <div className="h-full w-full flex items-center justify-center text-xs font-semibold text-muted-foreground">
@@ -150,13 +157,13 @@ export default function PostThreadPage() {
               )}
             </div>
 
-            {/* Input */}
             <div className="flex-1 relative">
               <input
                 type="text"
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Write a reply..."
+                placeholder={isGuest ? "Sign in to reply..." : "Write a reply..."}
+                onClick={() => isGuest && router.push('/login')}
                 className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none border-none py-2"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -167,8 +174,7 @@ export default function PostThreadPage() {
               />
             </div>
 
-            {/* Send button */}
-            {replyText.trim() && (
+            {replyText.trim() && !isGuest && (
               <button
                 onClick={handleSubmitReply}
                 disabled={isSubmitting}

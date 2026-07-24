@@ -9,6 +9,7 @@ import { useDebouncedSearch } from '@/hooks/useSearch';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { Search, LayoutGrid, Users, Bookmark, Sparkles } from 'lucide-react';
+import { CURATED_FEEDS } from '@/services/feeds';
 
 interface FeedInfo {
   uri: string;
@@ -50,10 +51,26 @@ export default function DiscoverPage() {
 
   // Fetch popular feeds on mount (no search query) — cached
   useEffect(() => {
-    if (!isAuthenticated || hasQuery) return;
+    if (hasQuery) return;
     if (popularFeeds.length > 0) return; // cache hit — don't re-fetch
     setPopularLoading(true);
     popularCursorRef.current = null;
+
+    // For guests, use static CURATED_FEEDS list
+    if (!isAuthenticated) {
+      setPopularFeeds(CURATED_FEEDS.map((f) => ({
+        uri: f.uri,
+        label: f.label,
+        description: f.description,
+        avatar: f.avatar,
+        creatorHandle: '',
+        creatorDisplayName: '',
+        likeCount: 0,
+      })));
+      setPopularLoading(false);
+      return;
+    }
+
     async function load() {
       try {
         const res = await fetch('/api/feed/generators?mode=popular&limit=25');
@@ -104,7 +121,31 @@ export default function DiscoverPage() {
 
   // Search when debounced query changes
   useEffect(() => {
-    if (!isAuthenticated || !hasQuery) return;
+    if (!hasQuery) return;
+
+    // For guests, filter the static CURATED_FEEDS list
+    if (!isAuthenticated) {
+      const q = debouncedQuery.toLowerCase();
+      setSearchResults(
+        CURATED_FEEDS.filter(
+          (f) =>
+            f.label.toLowerCase().includes(q) ||
+            f.description.toLowerCase().includes(q)
+        ).map((f) => ({
+          uri: f.uri,
+          label: f.label,
+          description: f.description,
+          avatar: f.avatar,
+          creatorHandle: '',
+          creatorDisplayName: '',
+          likeCount: 0,
+        }))
+      );
+      setHasSearched(true);
+      setSearching(false);
+      return;
+    }
+
     async function searchFeeds() {
       setSearching(true);
       setHasSearched(true);
@@ -128,7 +169,7 @@ export default function DiscoverPage() {
 
   // Auth redirect
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) router.replace('/login');
+    // Guests can browse discover
   }, [isAuthenticated, authLoading, router]);
 
   const isSubscribed = useCallback(

@@ -36,24 +36,26 @@ export function useFeed(feedSource?: FeedSource, limit = 30) {
 }
 
 export function useAuthorFeed(handle: string, limit = 30) {
-  const { session } = useAuth();
+  const { session, isAuthenticated, isLoading } = useAuth();
+  const isGuest = !isLoading && !isAuthenticated;
 
   return useInfiniteQuery({
-    queryKey: ['authorFeed', handle],
+    queryKey: ['authorFeed', handle, isGuest],
     queryFn: async ({ pageParam }) => {
-      if (!session) throw new Error('Not authenticated');
+      if (!handle) throw new Error('Handle required');
+      const endpoint = isGuest ? '/api/public/feed' : '/api/feed/author';
       const params = new URLSearchParams({
         actor: handle,
         limit: String(limit),
         ...(pageParam ? { cursor: pageParam } : {}),
       });
-      const res = await fetch(`/api/feed/author?${params}`);
+      const res = await fetch(`${endpoint}?${params}`);
       if (!res.ok) throw new Error('Failed to fetch author feed');
       return res.json();
     },
     getNextPageParam: (lastPage: any) => lastPage?.cursor ?? undefined,
     initialPageParam: undefined as string | undefined,
-    enabled: !!session && !!handle,
+    enabled: !!handle,
     staleTime: 30_000,
   });
 }

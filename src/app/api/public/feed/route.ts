@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const actor = searchParams.get('actor');
+    const feedUri = searchParams.get('feedUri');
     const cursor = searchParams.get('cursor') || undefined;
     const limit = parseInt(searchParams.get('limit') || '30');
 
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
       rawItems = data.feed || [];
       nextCursor = data.cursor;
     } else {
-      const data = await publicGetFeed(DISCOVER_FEED, cursor, limit);
+      const uri = feedUri || DISCOVER_FEED;
+      const data = await publicGetFeed(uri, cursor, limit);
       rawItems = data.feed || [];
       nextCursor = data.cursor;
     }

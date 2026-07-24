@@ -80,7 +80,8 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
 
   const handleLike = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!session || isLiking) return;
+    if (!session) { router.push('/login'); return; }
+    if (isLiking) return;
     setIsLiking(true);
     const wasLiked = liked;
     const prevCount = likeCount;
@@ -106,11 +107,12 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
       setLiked(wasLiked);
       setLikeCount(prevCount);
     } finally { setIsLiking(false); }
-  }, [session, isLiking, liked, likeCount, item.uri, item.cid, item.viewer?.like]);
+  }, [session, isLiking, liked, likeCount, item.uri, item.cid, item.viewer?.like, router]);
 
   const handleRepost = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!session || isReposting) return;
+    if (!session) { router.push('/login'); return; }
+    if (isReposting) return;
     setIsReposting(true);
     const wasReposted = reposted;
     const prevCount = repostCount;
@@ -136,7 +138,7 @@ export function FeedCard({ item, reason, hideAvatar }: FeedCardProps) {
       setReposted(wasReposted);
       setRepostCount(prevCount);
     } finally { setIsReposting(false); }
-  }, [session, isReposting, reposted, repostCount, item.uri, item.cid, item.viewer?.repost]);
+  }, [session, isReposting, reposted, repostCount, item.uri, item.cid, item.viewer?.repost, router]);
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
