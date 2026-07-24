@@ -76,9 +76,11 @@ export async function publicGetFeedGenerator(feedUri: string) {
 }
 
 export async function publicGetFeedGenerators(feedUris: string[]) {
-  return publicFetch('/xrpc/app.bsky.feed.getFeedGenerators', {
-    feeds: feedUris.join(','),
-  });
+  const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.feed.getFeedGenerators`);
+  feedUris.forEach((uri) => url.searchParams.append('feeds', uri));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`Public API error: ${res.status}`);
+  return res.json();
 }
 
 export async function publicGetPopularFeedGenerators(cursor?: string, limit = 25) {
